@@ -1,0 +1,1218 @@
+import React, { useState, useMemo } from 'react';
+import { Department, Manager, SubNode, Material } from '../types';
+import { generateMaterialCodification } from '../data';
+import { 
+  Plus, FolderPlus, UserPlus, Layers, Laptop, Check, AlertCircle, Trash2, 
+  Edit, Printer, X, FileText, Search, User, Briefcase, Network, Coins, 
+  Users, Cpu, Truck, LayoutList, ClipboardCheck, CreditCard, ChevronDown,
+  Square, CheckSquare, AlertTriangle
+} from 'lucide-react';
+
+// ─── Extended types with optional CIN / role on SubNode ───────────────────────
+// Note: these fields are added optionally to the existing SubNode & Manager
+// shapes — existing records without them will simply show undefined.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ManagementTabProps {
+  departments: Department[];
+  managers: Manager[];
+  subNodes: SubNode[];
+  materials: Material[];
+  onAddDepartment: (dept: Department) => void;
+  onAddManager: (manager: Manager) => void;
+  onAddSubNode: (node: SubNode) => void;
+  onAddMaterial: (material: Material) => void;
+  onDeleteMaterial: (id: string) => void;
+  onUpdateDepartment: (id: string, updated: Department) => void;
+  onDeleteDepartment: (id: string) => void;
+  onUpdateManager: (id: string, updated: Manager) => void;
+  onDeleteManager: (id: string) => void;
+  onUpdateSubNode: (id: string, updated: SubNode) => void;
+  onDeleteSubNode: (id: string) => void;
+  onUpdateMaterial: (id: string, updated: Material) => void;
+}
+
+export default function ManagementTab({
+  departments, managers, subNodes, materials,
+  onAddDepartment, onAddManager, onAddSubNode, onAddMaterial,
+  onDeleteMaterial, onUpdateDepartment, onDeleteDepartment,
+  onUpdateManager, onDeleteManager, onUpdateSubNode, onDeleteSubNode, onUpdateMaterial
+}: ManagementTabProps) {
+  const [activeForm, setActiveForm] = useState<'material' | 'subnode' | 'manager' | 'dept'>('material');
+  const [showSuccessToast, setShowSuccessToast] = useState<string | null>(null);
+
+  // Database Inspector
+  const [inspectorTab, setInspectorTab] = useState<'materials' | 'subnodes' | 'managers' | 'depts'>('materials');
+  const [inspectorSearch, setInspectorSearch] = useState('');
+
+  // Edit modal
+  const [editingItem, setEditingItem] = useState<{ type: 'material' | 'subnode' | 'manager' | 'dept'; id: string; data: any } | null>(null);
+
+  // ── DÉCHARGE: multi-select state ──────────────────────────────────────────
+  const [dechargeOpen, setDechargeOpen] = useState(false);
+  const [dechargeSelectedIds, setDechargeSelectedIds] = useState<string[]>([]);
+  const [dechargePreviewMaterials, setDechargePreviewMaterials] = useState<Material[] | null>(null);
+
+  // Department report
+  const [printDeptReport, setPrintDeptReport] = useState<Department | null>(null);
+
+  // ─── Auto-number helpers ───────────────────────────────────────────────────
+  const getNextDeptNum     = () => String(departments.length + 1);
+  const getNextManagerOfficeNum = () => String(managers.length + 1);
+  const getNextNodeOfficeNum    = () => String(subNodes.length + 1);
+
+  // ─── Form states ───────────────────────────────────────────────────────────
+  const [deptName, setDeptName] = useState('');
+  const [deptIcon, setDeptIcon] = useState('Briefcase');
+
+  const [mngName,    setMngName]    = useState('');
+  const [mngEmail,   setMngEmail]   = useState('');
+  const [mngRole,    setMngRole]    = useState('');
+  const [mngCompany, setMngCompany] = useState<'TC' | 'LX' | 'PL'>('TC');
+  const [mngDeptId,  setMngDeptId]  = useState(departments[0]?.id || '');
+  const [mngCin,     setMngCin]     = useState('');
+
+  const [nodeName,      setNodeName]      = useState('');
+  const [nodeType,      setNodeType]      = useState<'Office' | 'Person' | 'Cabinet' | 'Other'>('Person');
+  const [nodeManagerId, setNodeManagerId] = useState(managers[0]?.id || '');
+  const [nodeRole,      setNodeRole]      = useState('');
+  const [nodeCin,       setNodeCin]       = useState('');
+
+  const [matName,   setMatName]   = useState('');
+  const [matType,   setMatType]   = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Other'>('Desktop');
+  const [matStatus, setMatStatus] = useState<'Active' | 'Under Repair' | 'In Storage' | 'Retired'>('Active');
+  const [matSerial, setMatSerial] = useState('');
+  const [matCost,   setMatCost]   = useState('');
+  const [matDate,   setMatDate]   = useState('');
+  const [matNodeId, setMatNodeId] = useState(subNodes[0]?.id || '');
+  const [matNotes,  setMatNotes]  = useState('');
+
+  const triggerSuccess = (msg: string) => {
+    setShowSuccessToast(msg);
+    setTimeout(() => setShowSuccessToast(null), 3000);
+  };
+
+  // ─── Submit handlers ───────────────────────────────────────────────────────
+  const handleDeptSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deptName) return;
+    const autoNum = getNextDeptNum();
+    const newDept: Department = {
+      id: `dept-${Date.now()}`, name: deptName, deptNum: autoNum, icon: deptIcon,
+      shortCode: deptName.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'GEN'
+    };
+    onAddDepartment(newDept);
+    triggerSuccess(`Department "${deptName}" registered with auto ID #${autoNum}`);
+    setDeptName('');
+  };
+
+  const handleManagerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mngName || !mngEmail || !mngRole) return;
+    const colors = ['bg-[#FF1E1E]', 'bg-[#000000]', 'bg-slate-800', 'bg-red-800', 'bg-neutral-800', 'bg-[#3A3A3C]'];
+    const autoOffice = getNextManagerOfficeNum();
+    const newMng: any = {
+      id: `mng-${Date.now()}`, name: mngName, email: mngEmail, role: mngRole,
+      avatarColor: colors[Math.floor(Math.random() * colors.length)],
+      officeNum: autoOffice, company: mngCompany,
+      departmentId: mngDeptId || departments[0]?.id,
+      cin: mngCin.trim() || undefined
+    };
+    onAddManager(newMng);
+    triggerSuccess(`Manager "${mngName}" appointed — auto office #${autoOffice}`);
+    setMngName(''); setMngEmail(''); setMngRole(''); setMngCin('');
+  };
+
+  const handleSubNodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nodeName || !nodeManagerId) return;
+    const autoOffice = getNextNodeOfficeNum();
+    const newNode: any = {
+      id: `node-${Date.now()}`, name: nodeName, type: nodeType,
+      officeNum: autoOffice, managerId: nodeManagerId,
+      role: nodeRole.trim() || undefined,
+      cin: nodeCin.trim() || undefined
+    };
+    onAddSubNode(newNode);
+    triggerSuccess(`Desk card "${nodeName}" created — auto office #${autoOffice}`);
+    setNodeName(''); setNodeRole(''); setNodeCin('');
+  };
+
+  const handleMaterialSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!matName) return;
+    const activeNodeId = matNodeId || subNodes[0]?.id;
+    if (!activeNodeId) { alert('Please select a valid infrastructure office sub-node location.'); return; }
+    const targetNode = subNodes.find(n => n.id === activeNodeId);
+    if (!targetNode) { alert('Selected office location node not found.'); return; }
+    const associatedManager = managers.find(m => m.id === targetNode.managerId);
+    if (!associatedManager) { alert('Could not identify the corporate manager for this location.'); return; }
+    const departmentObj = departments.find(d => d.id === associatedManager.departmentId);
+    const resolvedDeptNum = departmentObj?.deptNum || '10';
+    const { materialNum, codification } = generateMaterialCodification(
+      associatedManager.company, resolvedDeptNum, targetNode.officeNum, matType, materials
+    );
+    const newMaterial: Material = {
+      id: `mat-${Date.now()}`, name: matName, type: matType,
+      company: associatedManager.company, deptNum: resolvedDeptNum,
+      officeNum: targetNode.officeNum, materialNum, codification, status: matStatus,
+      serialNumber: matSerial.trim() || `SN-PENDING-${Math.floor(1000 + Math.random() * 9000)}`,
+      purchaseDate: matDate || undefined, cost: Number(matCost) || 0,
+      notes: matNotes.trim() || undefined, assignedNodeId: activeNodeId
+    };
+    onAddMaterial(newMaterial);
+    triggerSuccess(`Asset cataloged — QR ID: ${codification}`);
+    setMatName(''); setMatSerial(''); setMatCost(''); setMatNotes(''); setMatDate('');
+    setMatNodeId(subNodes[0]?.id || '');
+  };
+
+  const handleEditSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    const { type, id, data } = editingItem;
+    if (type === 'dept')     { onUpdateDepartment(id, data); triggerSuccess(`Department "${data.name}" updated`); }
+    if (type === 'manager')  { onUpdateManager(id, data);   triggerSuccess(`Manager "${data.name}" updated`); }
+    if (type === 'subnode')  { onUpdateSubNode(id, data);   triggerSuccess(`Desk "${data.name}" updated`); }
+    if (type === 'material') {
+      const targetNode = subNodes.find(n => n.id === data.assignedNodeId);
+      if (targetNode) {
+        const mgr = managers.find(m => m.id === targetNode.managerId);
+        if (mgr) {
+          const dept = departments.find(d => d.id === mgr.departmentId);
+          data.company = mgr.company;
+          data.deptNum = dept ? dept.deptNum : '10';
+          data.officeNum = targetNode.officeNum;
+        }
+      }
+      onUpdateMaterial(id, data);
+      triggerSuccess(`Asset "${data.name}" updated`);
+    }
+    setEditingItem(null);
+  };
+
+  // ─── Search filters ────────────────────────────────────────────────────────
+  const getFilteredMaterials  = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return materials; return materials.filter(m => m.name.toLowerCase().includes(q) || m.codification.toLowerCase().includes(q) || m.serialNumber.toLowerCase().includes(q) || m.notes?.toLowerCase().includes(q)); };
+  const getFilteredSubNodes   = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return subNodes; return subNodes.filter(s => s.name.toLowerCase().includes(q) || s.officeNum.toLowerCase().includes(q) || s.type.toLowerCase().includes(q)); };
+  const getFilteredManagers   = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return managers; return managers.filter(m => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || m.role.toLowerCase().includes(q)); };
+  const getFilteredDepartments = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return departments; return departments.filter(d => d.name.toLowerCase().includes(q) || d.deptNum.toLowerCase().includes(q)); };
+
+  // ─── DÉCHARGE helpers ─────────────────────────────────────────────────────
+  // Check that selected assets all belong to the same SubNode
+  const dechargeNodeId = useMemo(() => {
+    if (dechargeSelectedIds.length === 0) return null;
+    const first = materials.find(m => m.id === dechargeSelectedIds[0]);
+    return first?.assignedNodeId || null;
+  }, [dechargeSelectedIds, materials]);
+
+  const canAddToSelection = (materialId: string) => {
+    const mat = materials.find(m => m.id === materialId);
+    if (!mat) return false;
+    if (dechargeSelectedIds.length === 0) return true;
+    return mat.assignedNodeId === dechargeNodeId;
+  };
+
+  const toggleDechargeSelect = (id: string) => {
+    if (dechargeSelectedIds.includes(id)) {
+      setDechargeSelectedIds(prev => prev.filter(x => x !== id));
+    } else {
+      if (!canAddToSelection(id)) return; // silently block
+      setDechargeSelectedIds(prev => [...prev, id]);
+    }
+  };
+
+  const openDechargePreview = () => {
+    const selected = materials.filter(m => dechargeSelectedIds.includes(m.id));
+    setDechargePreviewMaterials(selected);
+  };
+
+  const triggerSystemBrowserPrint = () => {
+  document.title = "BON_DE_DECHARGE";
+  window.print();
+};
+
+  const currentDate = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const currentDateShort = new Date().toLocaleDateString('fr-FR');
+
+  // ─── Décharge document renderer ───────────────────────────────────────────
+  const renderDechargeDocument = (selectedMaterials: Material[]) => {
+    if (selectedMaterials.length === 0) return null;
+    const node = subNodes.find(n => n.id === selectedMaterials[0].assignedNodeId) as any;
+    const mng  = node ? managers.find(m => m.id === node.managerId) as any : null;
+    const dept = mng ? departments.find(d => d.id === mng.departmentId) : null;
+    const totalCost = selectedMaterials.reduce((s, m) => s + m.cost, 0);
+    const slipNum   = `${String(new Date().getFullYear()).slice(-2)}${String(Date.now()).slice(-5)}`;
+
+    return (
+      <div className="printable-area font-sans text-slate-900 bg-white text-[11px] leading-relaxed space-y-5 p-10 print:p-0 border border-slate-300 rounded-2xl print:border-none print:rounded-none">
+
+        {/* ── HEADER ── */}
+        <div className="flex justify-between items-start border-b-2 border-[#CC0000] pb-4">
+          <div className="flex items-center gap-3">
+            {/* Technoceram red-T logo approximation */}
+            <div className="w-12 h-12 bg-[#CC0000] rounded-sm flex items-center justify-center shrink-0">
+              <span className="text-white font-black text-lg font-mono" style={{letterSpacing:'-2px'}}>T</span>
+            </div>
+            <div>
+              <p className="font-black text-base tracking-widest text-slate-950 uppercase">TECHNOCERAM</p>
+              <p className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Système de Gestion des Actifs Informatiques</p>
+            </div>
+          </div>
+          <div className="text-right font-sans">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">N° de document</p>
+            <p className="font-black font-mono text-slate-900 mt-0.5">N° : {slipNum}/2025</p>
+            <p className="text-[9px] text-slate-400 mt-1">Entité : <strong>{mng?.company || '—'} Group</strong></p>
+          </div>
+        </div>
+
+        {/* ── TITLE ── */}
+        <div className="text-center py-3">
+          <h2 className="text-sm font-black uppercase tracking-widest text-slate-950 border-b border-t border-slate-300 py-2 inline-block px-6">
+            Bon de Décharge pour Matériel Informatique
+          </h2>
+        </div>
+
+        {/* ── INTRO PARAGRAPH ── */}
+        <div className="space-y-2 text-[11px] leading-[1.8]">
+          <p>
+            Je soussigné(e), <strong>{node?.name || '________________'}</strong>,{' '}
+            <strong>{node?.role || mng?.role || '________________'}</strong>{' '}
+            {dept ? <>de la <strong>SARL TECHNOCERAM</strong></> : 'de TECHNOCERAM'},
+            déclare par la présente avoir reçu le matériel informatique suivant, et fournir, à cet
+            effet, une copie de ma carte d'identité nationale n°{' '}
+            <strong>{(node as any)?.cin ? <span className="font-mono">{(node as any).cin}</span> : '____________________'}</strong>.
+          </p>
+        </div>
+
+        {/* ── RECIPIENT + ASSIGNER BLOCK ── */}
+        <div className="grid grid-cols-2 gap-6">
+          <div className="p-3.5 border border-slate-200 rounded-xl bg-slate-50 space-y-1">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Bénéficiaire / Récepteur</p>
+            <p className="font-black text-slate-900 text-xs">{node?.name || '—'}</p>
+            {node?.role && <p className="text-[10px] text-slate-600 font-semibold">{node.role}</p>}
+            <p className="text-[10px] font-mono text-slate-500">Bureau / Salle : {node?.officeNum || '—'}</p>
+            {(node as any)?.cin && (
+              <p className="text-[10px] font-mono text-slate-500">CIN : <strong>{(node as any).cin}</strong></p>
+            )}
+          </div>
+          <div className="p-3.5 border border-slate-200 rounded-xl bg-slate-50 space-y-1">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Responsable Autorisé</p>
+            <p className="font-black text-slate-900 text-xs">{mng?.name || '—'}</p>
+            <p className="text-[10px] text-slate-600 font-semibold">{mng?.role || '—'}</p>
+            <p className="text-[10px] font-mono text-slate-400 truncate">{mng?.email || '—'}</p>
+            {mng?.cin && (
+              <p className="text-[10px] font-mono text-slate-500">CIN : <strong>{mng.cin}</strong></p>
+            )}
+          </div>
+        </div>
+
+        {/* ── EQUIPMENT TABLE ── */}
+        <div className="space-y-2">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Détail du matériel remis</p>
+          <div className="border border-slate-300 rounded-xl overflow-hidden">
+            <table className="w-full text-[10px]">
+              <thead>
+                <tr className="bg-slate-900 text-white">
+                  <th className="p-2.5 text-left font-bold tracking-wide">Désignation / Modèle</th>
+                  <th className="p-2.5 text-left font-bold tracking-wide">Marque & Modèle</th>
+                  <th className="p-2.5 text-left font-bold tracking-wide">Configuration / Specs</th>
+                  <th className="p-2.5 text-left font-bold tracking-wide">PROD ID / S/N</th>
+                  <th className="p-2.5 text-right font-bold tracking-wide">Valeur (DZD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedMaterials.map((mat, idx) => (
+                  <tr key={mat.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                    <td className="p-2.5 border-t border-slate-200">
+                      <span className="font-bold block">{mat.name}</span>
+                      <span className="text-[9px] text-slate-400 font-mono">{mat.codification}</span>
+                    </td>
+                    <td className="p-2.5 border-t border-slate-200">
+                      <span className="font-semibold">{mat.name}</span>
+                      <span className="text-[9px] text-slate-500 block">Catégorie : {mat.type}</span>
+                    </td>
+                    <td className="p-2.5 border-t border-slate-200 max-w-40">
+                      {mat.notes ? (
+                        <span className="text-slate-700 text-[9.5px] leading-tight whitespace-pre-line">{mat.notes}</span>
+                      ) : (
+                        <span className="text-slate-400 italic text-[9px]">—</span>
+                      )}
+                    </td>
+                    <td className="p-2.5 border-t border-slate-200 font-mono">
+                      <span className="block font-bold text-[#CC0000]">{mat.serialNumber}</span>
+                      {mat.purchaseDate && <span className="text-[9px] text-slate-400 block">Acq. : {mat.purchaseDate}</span>}
+                    </td>
+                    <td className="p-2.5 border-t border-slate-200 text-right font-mono font-bold">
+                      {mat.cost > 0 ? `${mat.cost.toLocaleString()} $` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {selectedMaterials.length > 1 && (
+                <tfoot>
+                  <tr className="bg-slate-100 border-t-2 border-slate-300">
+                    <td colSpan={4} className="p-2.5 font-black text-right text-xs text-slate-700 uppercase tracking-wider">Total Valeur :</td>
+                    <td className="p-2.5 text-right font-black font-mono text-slate-900">${totalCost.toLocaleString()}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+
+        {/* ── ENGAGEMENT TEXT ── */}
+        <div className="space-y-2 text-[10.5px] leading-[1.85] text-slate-700 border-t border-slate-200 pt-3">
+          <p>
+            Je reconnais avoir reçu ce matériel en état <strong>neuf</strong> de fonctionnement et m'engage à en faire un
+            usage approprié conformément aux politiques de sécurité informatique de l'entreprise.
+          </p>
+          <p>
+            Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la
+            confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.
+          </p>
+          <p>
+            En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel
+            en bon état dans les plus brefs délais.
+          </p>
+        </div>
+
+        {/* ── SIGNATURES ── */}
+        <div className="grid grid-cols-2 gap-16 pt-8 text-xs font-sans">
+          <div className="text-center space-y-12">
+            <p className="font-black text-slate-900 uppercase tracking-wide text-[10.5px]">Signature du Bénéficiaire</p>
+            <div>
+              <div className="border-b border-slate-400 w-3/4 mx-auto mb-1.5"></div>
+              <p className="text-[9px] text-slate-400">Date & Signature : ____________________</p>
+            </div>
+          </div>
+          <div className="text-center space-y-12">
+            <p className="font-black text-slate-900 uppercase tracking-wide text-[10.5px]">Visa du Responsable Hiérarchique</p>
+            <div>
+              <div className="border-b border-slate-400 w-3/4 mx-auto mb-1.5"></div>
+              <p className="text-[9px] text-slate-400">Cachet & Signature : ____________________</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── FOOTER ── */}
+        <div className="border-t border-slate-200 pt-4 text-center text-[8.5px] text-slate-400 space-y-0.5">
+          <p className="font-bold uppercase tracking-widest text-slate-500">SARL TECHNOCERAM — Document Officiel</p>
+          <p>Fait à Batna, le {currentDate} • Réf. : DEC-{slipNum} • Entité : {mng?.company || '—'} Group</p>
+          <p className="italic">Généré automatiquement par le Système de Gestion des Actifs — toute modification manuelle invalide ce document.</p>
+        </div>
+      </div>
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto py-1">
+
+      {/* ── Toast ── */}
+      {showSuccessToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#1D1D1F]/95 backdrop-blur-md border border-[#D2D2D7]/30 text-white rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="w-6 h-6 rounded-full bg-[#34C759] flex items-center justify-center shrink-0"><Check className="w-3.5 h-3.5" /></div>
+          <p className="text-xs font-semibold">{showSuccessToast}</p>
+        </div>
+      )}
+
+      {/* ── Form tab selectors ── */}
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-lg mx-auto border border-[#D2D2D7]/40">
+        {[
+          { id: 'material', label: '+ IT Material', icon: Laptop },
+          { id: 'subnode',  label: '+ Office Desk', icon: Layers },
+          { id: 'manager',  label: '+ New Manager', icon: UserPlus },
+          { id: 'dept',     label: '+ Department',  icon: FolderPlus }
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isSelected = activeForm === tab.id;
+          return (
+            <button key={tab.id} onClick={() => setActiveForm(tab.id as any)}
+              className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold tracking-tight transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-white text-[#FF1E1E] shadow-sm border border-[#D2D2D7]/20 font-extrabold' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
+              <Icon className="w-3.5 h-3.5" /><span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        {/* ── FORM PANEL ── */}
+        <div className="lg:col-span-5 bg-white rounded-3xl border border-[#D2D2D7]/50 shadow-sm p-6 relative overflow-hidden">
+
+          {/* A. MATERIAL FORM */}
+          {activeForm === 'material' && (
+            <form onSubmit={handleMaterialSubmit} className="space-y-4">
+              <div className="border-b border-slate-150 pb-3">
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><Laptop className="text-[#FF1E1E] w-4.5 h-4.5" />ADD NEW ASSET</h4>
+                <p className="text-[11px] text-[#86868B] mt-1">Registers new operational hardware. System auto-generates ERP codes.</p>
+              </div>
+              {subNodes.length === 0 ? (
+                <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                  <div className="text-xs text-rose-800"><p className="font-bold">No Office Sub-Nodes Found</p><p className="mt-1">Create a Desk/Office card first.</p></div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Asset Model / Name</label>
+                    <input type="text" required placeholder="e.g. Dell PowerEdge Server R650"
+                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                      value={matName} onChange={(e) => setMatName(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Infrastructure Location (Office/Desk Node)</label>
+                    <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                      value={matNodeId} onChange={(e) => setMatNodeId(e.target.value)}>
+                      {subNodes.map((node) => {
+                        const mng = managers.find(m => m.id === node.managerId);
+                        return <option key={node.id} value={node.id}>{node.name} (Room {node.officeNum} — {mng ? mng.name : 'Unknown'})</option>;
+                      })}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Device Category</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                        value={matType} onChange={(e) => setMatType(e.target.value as any)}>
+                        <option value="Printer">Printer</option><option value="Server">Server Room Host</option>
+                        <option value="Switch">Switch / Gateway</option><option value="Desktop">Desktop PC</option>
+                        <option value="Screen">Screen Display</option><option value="UPS">UPS (Ondulateur)</option>
+                        <option value="Laptop">Laptop Notebook</option><option value="Other">Other / Utility</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Lifecycle Status</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                        value={matStatus} onChange={(e) => setMatStatus(e.target.value as any)}>
+                        <option value="Active">Active (Deployed)</option><option value="Under Repair">Under Repair</option>
+                        <option value="In Storage">In Reserve Stock</option><option value="Retired">Retired</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Serial No (S/N)</label>
+                      <input type="text" placeholder="e.g. SN-8822A-CISCO"
+                        className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                        value={matSerial} onChange={(e) => setMatSerial(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Purchase Price ($)</label>
+                      <input type="number" placeholder="e.g. 1500"
+                        className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                        value={matCost} onChange={(e) => setMatCost(e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Acquisition Date (Optional)</label>
+                    <input type="date" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] text-[#1D1D1F]"
+                      value={matDate} onChange={(e) => setMatDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
+                      Configuration / Specs & Remarks
+                      <span className="ml-1 text-[#FF1E1E] font-black">↑ Appears in Décharge</span>
+                    </label>
+                    <textarea rows={3} placeholder="e.g. Processeur: AMD RYZEN 7 8845HS @5.1GHz&#10;RAM: 16Gb DDR5&#10;Disque: 1Tb SSD"
+                      className="w-full text-xs px-3.5 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                      value={matNotes} onChange={(e) => setMatNotes(e.target.value)} />
+                  </div>
+                  <button type="submit"
+                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2">
+                    <Plus className="w-4 h-4 text-[#FF1E1E]" />Catalog Asset & Generate QR Code
+                  </button>
+                </>
+              )}
+            </form>
+          )}
+
+          {/* B. SUBNODE FORM — now with Role + CIN */}
+          {activeForm === 'subnode' && (
+            <form onSubmit={handleSubNodeSubmit} className="space-y-4">
+              <div className="border-b border-slate-150 pb-3">
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><Layers className="text-emerald-600 w-4.5 h-4.5" />Create Office Desk / Card Element</h4>
+                <p className="text-[11px] text-[#86868B] mt-1">Adds a card nested under a manager. Office number is auto-assigned.</p>
+              </div>
+              <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <Layers className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="text-[11px] text-emerald-800 font-semibold">Auto office number: <span className="font-black font-mono">#{getNextNodeOfficeNum()}</span></span>
+              </div>
+              {managers.length === 0 ? (
+                <p className="text-xs text-rose-500 font-semibold p-4 bg-rose-50 rounded-xl">No registered managers. Create a manager first!</p>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Full Name (Desk / Person)</label>
+                    <input type="text" required placeholder="e.g. MESSAOUDI HOUSSEM"
+                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                      value={nodeName} onChange={(e) => setNodeName(e.target.value)} />
+                  </div>
+
+                  {/* ── NEW: Role field ── */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
+                      Role / Title <span className="text-slate-400 normal-case font-normal">(optional — shown in Décharge)</span>
+                    </label>
+                    <input type="text" placeholder="e.g. Méthodiste Luxe Tile"
+                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                      value={nodeRole} onChange={(e) => setNodeRole(e.target.value)} />
+                  </div>
+
+                  {/* ── NEW: CIN field ── */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5 items-center gap-1.5">
+                      <CreditCard className="w-3 h-3 text-slate-400" />
+                      Carte d'Identité Nationale (CIN) <span className="text-slate-400 normal-case font-normal">(optional)</span>
+                    </label>
+                    <input type="text" placeholder="e.g. 109840117076020002"
+                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                      value={nodeCin} onChange={(e) => setNodeCin(e.target.value)} />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Direct Responsible Head (Manager)</label>
+                    <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                      value={nodeManagerId} onChange={(e) => setNodeManagerId(e.target.value)}>
+                      {managers.map(m => <option key={m.id} value={m.id}>{m.name} ({m.company} - {m.role})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Structure Type</label>
+                    <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl cursor-pointer focus:outline-none"
+                      value={nodeType} onChange={(e) => setNodeType(e.target.value as any)}>
+                      <option value="Person">Particular Person Desk</option>
+                      <option value="Office">Office Room</option>
+                      <option value="Cabinet">Rack Array / Cabinet</option>
+                      <option value="Other">Other space</option>
+                    </select>
+                  </div>
+                  <button type="submit"
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-4">
+                    <Plus className="w-4 h-4" />Register Desk Element CARD
+                  </button>
+                </>
+              )}
+            </form>
+          )}
+
+          {/* C. MANAGER FORM — now with CIN */}
+          {activeForm === 'manager' && (
+            <form onSubmit={handleManagerSubmit} className="space-y-4">
+              <div className="border-b border-slate-150 pb-3">
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><UserPlus className="text-[#FF1E1E] w-4.5 h-4.5" />Appoint Corporate Department Head</h4>
+                <p className="text-[11px] text-[#86868B] mt-1">Enrolls an executive manager. Office suite auto-assigned.</p>
+              </div>
+              <div className="flex items-center gap-2 px-3.5 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
+                <UserPlus className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span className="text-[11px] text-blue-800 font-semibold">Auto office suite: <span className="font-black font-mono">#{getNextManagerOfficeNum()}</span></span>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Full Name</label>
+                  <input type="text" required placeholder="e.g. Helena Rostova"
+                    className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                    value={mngName} onChange={(e) => setMngName(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Official E-Mail</label>
+                  <input type="email" required placeholder="e.g. h.rostova@lx-corp.com"
+                    className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                    value={mngEmail} onChange={(e) => setMngEmail(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Corporate Role / Title</label>
+                  <input type="text" required placeholder="e.g. Global Network Chief"
+                    className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                    value={mngRole} onChange={(e) => setMngRole(e.target.value)} />
+                </div>
+                {/* ── NEW: CIN for manager ── */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5 items-center gap-1.5">
+                    <CreditCard className="w-3 h-3 text-slate-400" />
+                    Carte d'Identité Nationale (CIN) <span className="text-slate-400 normal-case font-normal">(optional)</span>
+                  </label>
+                  <input type="text" placeholder="e.g. 109840117076020002"
+                    className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                    value={mngCin} onChange={(e) => setMngCin(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Corporate Entity</label>
+                  <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl cursor-pointer focus:outline-none"
+                    value={mngCompany} onChange={(e) => setMngCompany(e.target.value as any)}>
+                    <option value="TC">TC (Telecom Group)</option><option value="LX">LX (Logistics)</option><option value="PL">PL (Plants)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Department</label>
+                  <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl cursor-pointer focus:outline-none"
+                    value={mngDeptId} onChange={(e) => setMngDeptId(e.target.value)}>
+                    {departments.map(d => <option key={d.id} value={d.id}>{d.name} (Code #{d.deptNum})</option>)}
+                  </select>
+                </div>
+              </div>
+              <button type="submit"
+                className="w-full py-3 bg-[#FF1E1E] hover:bg-red-700 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-4">
+                <Plus className="w-4 h-4" />Appoint Department Head
+              </button>
+            </form>
+          )}
+
+          {/* D. DEPARTMENT FORM */}
+          {activeForm === 'dept' && (
+            <form onSubmit={handleDeptSubmit} className="space-y-4">
+              <div className="border-b border-slate-150 pb-3">
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><FolderPlus className="text-[#FF1E1E] w-4.5 h-4.5" />Define System Department</h4>
+                <p className="text-[11px] text-[#86868B] mt-1">Department number assigned automatically.</p>
+              </div>
+              <div className="flex items-center gap-2 px-3.5 py-2.5 bg-rose-50 border border-rose-200 rounded-xl">
+                <FolderPlus className="w-3.5 h-3.5 text-[#FF1E1E] shrink-0" />
+                <span className="text-[11px] text-rose-800 font-semibold">Auto dept number: <span className="font-black font-mono">#{getNextDeptNum()}</span></span>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Department Name</label>
+                <input type="text" required placeholder="e.g. Operations & Labs"
+                  className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                  value={deptName} onChange={(e) => setDeptName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Representation Icon</label>
+                <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl cursor-pointer focus:outline-none"
+                  value={deptIcon} onChange={(e) => setDeptIcon(e.target.value)}>
+                  <option value="Briefcase">Business Briefcase</option><option value="Network">Infrastructure Network</option>
+                  <option value="Coins">Finance & Audit</option><option value="Users">HR Users</option>
+                  <option value="Cpu">Engineering Cpu</option><option value="Truck">Logistics Truck</option>
+                  <option value="Layers">Database Modules</option>
+                </select>
+              </div>
+              <button type="submit"
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-4">
+                <Plus className="w-4 h-4 text-[#FF1E1E]" />Initialize Department
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* ── DATABASE INSPECTOR PANEL ── */}
+        <div className="lg:col-span-7 bg-white rounded-3xl border border-[#D2D2D7]/50 shadow-sm p-6 flex flex-col min-h-125">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h4 className="text-sm font-black text-slate-950 uppercase tracking-widest flex items-center gap-1.5">
+                <LayoutList className="w-4 h-4 text-[#FF1E1E]" />Database Records CRUD
+              </h4>
+              <p className="text-[11px] text-[#86868B] mt-0.5">Edit, delete, and generate Décharge handover certifications</p>
+            </div>
+            <div className="flex flex-wrap bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs shrink-0 select-none">
+              {[
+                { id: 'materials', label: `Assets (${materials.length})` },
+                { id: 'subnodes',  label: `Desks (${subNodes.length})` },
+                { id: 'managers',  label: `Heads (${managers.length})` },
+                { id: 'depts',     label: `Depts (${departments.length})` },
+              ].map(t => (
+                <button key={t.id}
+                  onClick={() => { setInspectorTab(t.id as any); setInspectorSearch(''); setDechargeSelectedIds([]); }}
+                  className={`px-2.5 py-1 rounded-md font-bold transition-all text-[11px] cursor-pointer ${inspectorTab === t.id ? 'bg-white text-slate-950 shadow-xs' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Search bar ── */}
+          <div className="relative mt-4">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <input type="text" placeholder={`Search in ${inspectorTab}...`}
+              className="w-full text-xs pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] rounded-xl transition-all"
+              value={inspectorSearch} onChange={(e) => setInspectorSearch(e.target.value)} />
+          </div>
+
+          {/* ── DÉCHARGE ACTION BAR — only on Materials tab ── */}
+          {inspectorTab === 'materials' && (
+            <div className="mt-3 flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-[#FF1E1E] shrink-0" />
+                <div>
+                  <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide">Décharge Multi-Sélection</p>
+                  <p className="text-[9.5px] text-slate-500">
+                    {dechargeSelectedIds.length === 0
+                      ? 'Cochez les équipements ci-dessous — ils doivent appartenir au même utilisateur.'
+                      : <span className="text-emerald-700 font-bold">{dechargeSelectedIds.length} équipement(s) sélectionné(s) {dechargeNodeId ? `— ${(subNodes.find(n=>n.id===dechargeNodeId) as any)?.name || ''}` : ''}</span>
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {dechargeSelectedIds.length > 0 && (
+                  <button onClick={() => setDechargeSelectedIds([])}
+                    className="px-2.5 py-1.5 text-[10px] font-bold text-slate-500 hover:bg-slate-200 rounded-lg transition-all cursor-pointer">
+                    Effacer
+                  </button>
+                )}
+                <button
+                  onClick={openDechargePreview}
+                  disabled={dechargeSelectedIds.length === 0}
+                  className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                    dechargeSelectedIds.length > 0
+                      ? 'bg-[#FF1E1E] hover:bg-[#E01B1B] text-white cursor-pointer shadow-sm'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}>
+                  <Printer className="w-3.5 h-3.5" />
+                  Générer Décharge ({dechargeSelectedIds.length})
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Record list ── */}
+          <div className="mt-3 flex-1 overflow-y-auto workspace-scroll max-h-110 pr-1 space-y-2">
+
+            {/* MATERIALS */}
+            {inspectorTab === 'materials' && (
+              getFilteredMaterials().length > 0 ? getFilteredMaterials().map((m) => {
+                const node = subNodes.find(n => n.id === m.assignedNodeId);
+                const isChecked = dechargeSelectedIds.includes(m.id);
+                const isBlocked = !isChecked && dechargeSelectedIds.length > 0 && !canAddToSelection(m.id);
+                return (
+                  <div key={m.id}
+                    className={`flex justify-between items-center p-3.5 rounded-2xl border transition-colors gap-3 ${
+                      isChecked
+                        ? 'bg-[#FF1E1E]/5 border-[#FF1E1E]/30 ring-1 ring-[#FF1E1E]/20'
+                        : isBlocked
+                        ? 'bg-slate-50 border-[#D2D2D7]/40 opacity-40'
+                        : 'bg-slate-50 border-[#D2D2D7]/40 hover:bg-slate-100/40'
+                    }`}>
+                    {/* Checkbox */}
+                    <button
+                      onClick={() => toggleDechargeSelect(m.id)}
+                      disabled={isBlocked}
+                      className={`shrink-0 transition-colors ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      title={isBlocked ? 'Doit appartenir au même utilisateur' : ''}>
+                      {isChecked
+                        ? <CheckSquare className="w-4 h-4 text-[#FF1E1E]" />
+                        : <Square className={`w-4 h-4 ${isBlocked ? 'text-slate-300' : 'text-slate-400 hover:text-slate-600'}`} />
+                      }
+                    </button>
+
+                    <div className="truncate min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-slate-950 text-xs tracking-wide">{m.codification}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${m.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' : m.status === 'Under Repair' ? 'bg-[#FF9500]/10 text-[#FF9500]' : 'bg-slate-200 text-slate-700'}`}>{m.status}</span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-800 block truncate mt-0.5">{m.name}</span>
+                      <span className="text-[10px] text-[#86868B] block truncate">
+                        {node ? node.name : 'Unknown Desk'} • S/N: {m.serialNumber} • ${m.cost}
+                      </span>
+                      {m.notes && (
+                        <span className="text-[9.5px] text-slate-400 italic block truncate mt-0.5">
+                          ↳ {m.notes.slice(0, 80)}{m.notes.length > 80 ? '…' : ''}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button onClick={() => setEditingItem({ type: 'material', id: m.id, data: { ...m } })}
+                        className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer">
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => { if (confirm(`Delete material ${m.codification}?`)) { onDeleteMaterial(m.id); triggerSuccess(`Deleted "${m.codification}"`); } }}
+                        className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              }) : <p className="text-xs text-[#86868B] text-center py-10">No matching assets found.</p>
+            )}
+
+            {/* SUBNODES */}
+            {inspectorTab === 'subnodes' && (
+              getFilteredSubNodes().length > 0 ? getFilteredSubNodes().map((s: any) => {
+                const mng = managers.find(man => man.id === s.managerId);
+                const count = materials.filter(m => m.assignedNodeId === s.id).length;
+                return (
+                  <div key={s.id} className="flex justify-between items-center p-3.5 rounded-2xl bg-slate-50 border border-[#D2D2D7]/40 hover:bg-slate-100/40 transition-colors">
+                    <div className="truncate pr-3 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-900 text-xs">{s.name}</span>
+                        <span className="bg-[#FAF9F6] border border-slate-200 text-slate-600 text-[9px] font-bold px-1.5 rounded font-mono">{s.type}</span>
+                        <span className="bg-slate-100 border border-slate-200 text-slate-500 text-[9px] font-mono font-bold px-1.5 rounded">#{s.officeNum}</span>
+                      </div>
+                      {s.role && <span className="text-[10px] text-slate-600 font-semibold block mt-0.5">Rôle : {s.role}</span>}
+                      <span className="text-[10px] text-[#86868B] block mt-0.5">
+                        Manager: {mng ? mng.name : 'Unassigned'}
+                        {s.cin && <> • CIN : <span className="font-mono">{s.cin}</span></>}
+                      </span>
+                      <span className="text-[9px] font-extrabold text-teal-600 mt-1 block uppercase tracking-wide">{count} {count === 1 ? 'allocated asset' : 'allocated assets'}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => setEditingItem({ type: 'subnode', id: s.id, data: { ...s } })}
+                        className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { if (confirm(`Delete desk node? (${count} assets affected)`)) { onDeleteSubNode(s.id); triggerSuccess('Deleted desk node'); } }}
+                        className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                );
+              }) : <p className="text-xs text-[#86868B] text-center py-10">No matching desk/office cards found.</p>
+            )}
+
+            {/* MANAGERS */}
+            {inspectorTab === 'managers' && (
+              getFilteredManagers().length > 0 ? getFilteredManagers().map((m: any) => {
+                const deptObj = departments.find(d => d.id === m.departmentId);
+                const nodeCount = subNodes.filter(s => s.managerId === m.id).length;
+                return (
+                  <div key={m.id} className="flex justify-between items-center p-3.5 rounded-2xl bg-slate-50 border border-[#D2D2D7]/40 hover:bg-slate-100/40 transition-colors">
+                    <div className="truncate pr-3 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${m.avatarColor}`} />
+                        <span className="font-bold text-slate-900 text-xs truncate">{m.name}</span>
+                        <span className="text-[9px] font-black bg-rose-50 border border-rose-200/50 text-[#FF1E1E] px-1 rounded">{m.company}</span>
+                        <span className="bg-slate-100 border border-slate-200 text-slate-500 text-[9px] font-mono font-bold px-1.5 rounded">Suite #{m.officeNum}</span>
+                      </div>
+                      <span className="text-[10px] text-[#86868B] block mt-0.5">
+                        {m.role} • Dept: {deptObj ? deptObj.name : 'Unassigned'}
+                        {m.cin && <> • CIN : <span className="font-mono">{m.cin}</span></>}
+                      </span>
+                      <span className="text-[9.5px] text-indigo-600 font-bold block mt-1">Directly managing {nodeCount} desks/cells</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => setEditingItem({ type: 'manager', id: m.id, data: { ...m } })}
+                        className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { if (confirm(`Delete Manager "${m.name}"?`)) { onDeleteManager(m.id); triggerSuccess('Decommissioned manager profile'); } }}
+                        className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                );
+              }) : <p className="text-xs text-[#86868B] text-center py-10">No matching managers found.</p>
+            )}
+
+            {/* DEPARTMENTS */}
+            {inspectorTab === 'depts' && (
+              getFilteredDepartments().length > 0 ? getFilteredDepartments().map((d) => {
+                const headCount = managers.filter(m => m.departmentId === d.id).length;
+                return (
+                  <div key={d.id} className="flex justify-between items-center p-3.5 rounded-2xl bg-slate-50 border border-[#D2D2D7]/40 hover:bg-slate-100/40 transition-colors">
+                    <div className="truncate pr-3">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1 rounded bg-[#FF1E1E]/10 text-[#FF1E1E] text-[10px] font-mono font-bold leading-none">#{d.deptNum}</span>
+                        <span className="font-bold text-slate-900 text-xs">{d.name} ({d.shortCode})</span>
+                      </div>
+                      <span className="text-[10px] text-[#86868B] block mt-0.5">Department heads: {headCount}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button onClick={() => setPrintDeptReport(d)}
+                        className="p-1.5 bg-white text-slate-755 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-bold">
+                        <Printer className="w-3.5 h-3.5" /><span>Report</span>
+                      </button>
+                      <button onClick={() => setEditingItem({ type: 'dept', id: d.id, data: { ...d } })}
+                        className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { if (confirm(`Delete Department "${d.name}"?`)) { onDeleteDepartment(d.id); triggerSuccess('Purged Department registry'); } }}
+                        className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                );
+              }) : <p className="text-xs text-[#86868B] text-center py-10">No matching departments found.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          EDIT MODAL
+      ════════════════════════════════════════════════════════════════════════ */}
+      {editingItem && (
+        <div className="fixed inset-0 bg-[#1D1D1F]/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl border border-[#D2D2D7]/50 shadow-2xl max-w-lg w-full p-6 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-150 pb-3 mb-4">
+              <h3 className="text-sm font-black text-slate-950 uppercase tracking-wider">Modify Record — {editingItem.type.toUpperCase()}</h3>
+              <button onClick={() => setEditingItem(null)} className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            <form onSubmit={handleEditSave} className="space-y-4">
+              {editingItem.type === 'dept' && (
+                <div className="space-y-3">
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Department Name</label>
+                    <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.name}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } })} /></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Dept ID Number</label>
+                    <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.deptNum}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, deptNum: e.target.value } })} /></div>
+                </div>
+              )}
+              {editingItem.type === 'manager' && (
+                <div className="space-y-3">
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Full Name</label>
+                    <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.name}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } })} /></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Official Email</label>
+                    <input type="email" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.email}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, email: e.target.value } })} /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Title / Role</label>
+                      <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.role}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, role: e.target.value } })} /></div>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Office Suite #</label>
+                      <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.officeNum}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, officeNum: e.target.value } })} /></div>
+                  </div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1 items-center gap-1"><CreditCard className="w-3 h-3" />CIN (optional)</label>
+                    <input type="text" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-mono" value={editingItem.data.cin || ''}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, cin: e.target.value } })} /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Entity</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.company}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, company: e.target.value } })}>
+                        <option value="TC">TC</option><option value="LX">LX</option><option value="PL">PL</option>
+                      </select></div>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Department</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.departmentId}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, departmentId: e.target.value } })}>
+                        {departments.map(d => <option key={d.id} value={d.id}>{d.name} (#{d.deptNum})</option>)}
+                      </select></div>
+                  </div>
+                </div>
+              )}
+              {editingItem.type === 'subnode' && (
+                <div className="space-y-3">
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Full Name</label>
+                    <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.name}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } })} /></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Role / Title</label>
+                    <input type="text" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" placeholder="e.g. Méthodiste Luxe Tile" value={editingItem.data.role || ''}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, role: e.target.value } })} /></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1 items-center gap-1"><CreditCard className="w-3 h-3" />CIN (optional)</label>
+                    <input type="text" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-mono" value={editingItem.data.cin || ''}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, cin: e.target.value } })} /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Room/Area</label>
+                      <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.officeNum}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, officeNum: e.target.value } })} /></div>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Node Type</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.type}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, type: e.target.value } })}>
+                        <option value="Person">Person Desk</option><option value="Office">Office Room</option>
+                        <option value="Cabinet">Rack / Cabinet</option><option value="Other">Other</option>
+                      </select></div>
+                  </div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Advisor Manager</label>
+                    <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.managerId}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, managerId: e.target.value } })}>
+                      {managers.map(m => <option key={m.id} value={m.id}>{m.name} ({m.company} - {m.role})</option>)}
+                    </select></div>
+                </div>
+              )}
+              {editingItem.type === 'material' && (
+                <div className="space-y-3">
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Asset Model Name</label>
+                    <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.name}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } })} /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Location Node</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.assignedNodeId}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, assignedNodeId: e.target.value } })}>
+                        {subNodes.map(s => <option key={s.id} value={s.id}>{s.name} (Room {s.officeNum})</option>)}
+                      </select></div>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Category</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.type}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, type: e.target.value } })}>
+                        <option value="Printer">Printer</option><option value="Server">Server</option>
+                        <option value="Switch">Switch</option><option value="Desktop">Desktop PC</option>
+                        <option value="Screen">Screen</option><option value="UPS">UPS</option>
+                        <option value="Laptop">Laptop</option><option value="Other">Other</option>
+                      </select></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Serial Number</label>
+                      <input type="text" required className="font-mono w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.serialNumber}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, serialNumber: e.target.value } })} /></div>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Cost ($)</label>
+                      <input type="number" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.cost}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, cost: Number(e.target.value) } })} /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Status</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.status}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, status: e.target.value } })}>
+                        <option value="Active">Active</option><option value="Under Repair">Under Repair</option>
+                        <option value="In Storage">In Storage</option><option value="Retired">Retired</option>
+                      </select></div>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Codification Ref</label>
+                      <input type="text" required className="font-mono w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none bg-slate-100" value={editingItem.data.codification}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, codification: e.target.value } })} /></div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">
+                      Configuration / Specs <span className="text-[#FF1E1E]">(→ Décharge)</span>
+                    </label>
+                    <textarea rows={3} className="w-full text-xs px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.notes || ''}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, notes: e.target.value } })} /></div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button type="button" onClick={() => setEditingItem(null)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all cursor-pointer">Cancel</button>
+                <button type="submit" className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer uppercase tracking-wider">Save Modifications</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          DÉCHARGE PREVIEW MODAL — Full French document
+      ════════════════════════════════════════════════════════════════════════ */}
+      {dechargePreviewMaterials && (
+        <div className="fixed inset-0 bg-[#1D1D1F]/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full p-8 my-8 relative flex flex-col max-h-[92vh]">
+            {/* Modal header — hidden on print */}
+            <div className="flex items-center justify-between border-b border-slate-150 pb-4 mb-6 select-none shrink-0 print:hidden">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="w-5 h-5 text-[#FF1E1E]" />
+                <div>
+                  <h3 className="text-sm font-black text-slate-950 uppercase tracking-widest">Bon de Décharge — Aperçu</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">{dechargePreviewMaterials.length} équipement(s) • Bénéficiaire : {(subNodes.find(n => n.id === dechargePreviewMaterials[0]?.assignedNodeId) as any)?.name || '—'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={triggerSystemBrowserPrint}
+                  className="px-4 py-2 bg-[#FF1E1E] hover:bg-[#E01B1B] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                  <Printer className="w-3.5 h-3.5" /><span>Imprimer (Ctrl+P)</span>
+                </button>
+                <button onClick={() => setDechargePreviewMaterials(null)}
+                  className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
+              </div>
+            </div>
+
+            {/* Scrollable document area */}
+            <div className="flex-1 overflow-y-auto print:overflow-visible">
+              {renderDechargeDocument(dechargePreviewMaterials)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          DEPT REPORT MODAL (unchanged)
+      ════════════════════════════════════════════════════════════════════════ */}
+      {printDeptReport && (() => {
+        const dept = printDeptReport;
+        const deptMngs = managers.filter(m => m.departmentId === dept.id);
+        const deptSubNodes = subNodes.filter(s => deptMngs.some(m => m.id === s.managerId));
+        const deptMaterials = materials.filter(m => deptSubNodes.some(s => s.id === m.assignedNodeId));
+        const totalValuation = deptMaterials.reduce((sum, c) => sum + c.cost, 0);
+        return (
+          <div className="fixed inset-0 bg-[#1D1D1F]/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-250">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full p-8 my-8 relative flex flex-col max-h-[92vh]">
+              <div className="flex items-center justify-between border-b border-slate-150 pb-4 mb-4 select-none shrink-0 print:hidden">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-[#FF1E1E]" />
+                  <h3 className="text-sm font-black text-slate-950 uppercase tracking-widest">Department Status Report Audit</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={triggerSystemBrowserPrint} className="px-4 py-2 bg-[#FF1E1E] hover:bg-[#E01B1B] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                    <Printer className="w-3.5 h-3.5" /><span>Print (Ctrl+P)</span>
+                  </button>
+                  <button onClick={() => setPrintDeptReport(null)} className="p-1.5 hover:bg-slate-150 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto pr-1 print:overflow-visible font-sans text-xs">
+                <div className="printable-area p-8 border border-slate-300 rounded-2xl bg-white text-slate-900 space-y-6 md:p-12 print:border-none print:p-0">
+                  <div className="flex justify-between items-start border-b-2 border-slate-900 pb-5">
+                    <div>
+                      <h1 className="text-lg font-extrabold tracking-wider text-slate-950 uppercase font-sans">TECHNOCERAM</h1>
+                      <p className="text-[10px] font-sans font-black text-[#FF1E1E] uppercase tracking-widest mt-1">Department Audit Report</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Audit Date</p>
+                      <p className="font-bold text-slate-850 mt-1">{currentDate}</p>
+                    </div>
+                  </div>
+                  <div className="bg-slate-900 text-white p-4.5 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#FF1E1E]">Active Segment Index</span>
+                      <h2 className="text-base font-black uppercase tracking-tight font-sans mt-0.5">{dept.name} Status Sheet</h2>
+                    </div>
+                    <div className="flex gap-4 md:text-right shrink-0">
+                      <div><span className="text-[9px] text-slate-400 uppercase tracking-wider block">Dept ID Code</span><span className="text-xs font-bold font-mono">#{dept.deptNum}</span></div>
+                      <div><span className="text-[9px] text-slate-400 uppercase tracking-wider block">Valuation Total</span><span className="text-xs font-bold text-[#FF1E1E] font-mono">${totalValuation.toLocaleString()}</span></div>
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    <h3 className="text-xs font-black text-slate-950 uppercase tracking-wider border-b border-slate-200 pb-1">1. Commissioned Department heads</h3>
+                    {deptMngs.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {deptMngs.map(m => (
+                          <div key={m.id} className="p-3 bg-slate-50 rounded-xl border border-slate-150">
+                            <h4 className="font-extrabold text-slate-900 text-[11px]">{m.name}</h4>
+                            <p className="text-[10px] text-slate-500 font-medium leading-none mt-1">{m.role}</p>
+                            <p className="text-[9.5px] font-mono text-slate-400 mt-1 leading-none">{m.email}</p>
+                            <span className="text-[9px] font-mono font-bold bg-[#FF1E1E]/8 text-[#FF1E1E] px-1 rounded mt-2 inline-block">Suite {m.officeNum} • {m.company}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-xs text-slate-400 italic">No appointed managers inside this department registry.</p>}
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-black text-slate-950 uppercase tracking-wider border-b border-slate-200 pb-1">2. Sub-node Station Inventory Records</h3>
+                    {deptSubNodes.length > 0 ? (
+                      <div className="space-y-4">
+                        {deptSubNodes.map(s => {
+                          const stationMaterials = deptMaterials.filter(m => m.assignedNodeId === s.id);
+                          const associatedManager = deptMngs.find(man => man.id === s.managerId);
+                          return (
+                            <div key={s.id} className="p-4 rounded-xl border border-slate-200 space-y-3">
+                              <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                <div>
+                                  <span className="font-extrabold text-slate-900">{s.name}</span>
+                                  <span className="text-[10px] text-slate-500 block">Room {s.officeNum} • {s.type} • Head: {associatedManager?.name || 'Unassigned'}</span>
+                                </div>
+                                <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded shrink-0">{stationMaterials.length} items</span>
+                              </div>
+                              {stationMaterials.length > 0 ? (
+                                <table className="w-full text-left text-[10px]">
+                                  <thead>
+                                    <tr className="bg-slate-100 text-slate-950 font-bold border-b border-slate-300">
+                                      <th className="p-2">System Code</th><th className="p-2">Model / Name</th>
+                                      <th className="p-2 text-center">Status</th><th className="p-2">Serial</th>
+                                      <th className="p-2 text-right">Value ($)</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {stationMaterials.map(m => (
+                                      <tr key={m.id} className="border-b border-slate-250 hover:bg-slate-50">
+                                        <td className="p-2 font-mono font-bold text-[#FF1E1E] tracking-tight">{m.codification}</td>
+                                        <td className="p-2"><p className="font-bold">{m.name}</p><p className="text-[9px] text-gray-400">{m.notes || 'No remarks'}</p></td>
+                                        <td className="p-2 text-center"><span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold ${m.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-slate-200 text-slate-700'}`}>{m.status.toUpperCase()}</span></td>
+                                        <td className="p-2 font-mono text-slate-500">{m.serialNumber}</td>
+                                        <td className="p-2 text-right font-mono font-bold">${m.cost}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              ) : <p className="text-[10px] text-slate-400 italic">No hardware assets mapped under this station.</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : <p className="text-xs text-slate-400 italic">No workstation sub-nodes associated under this department.</p>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-8 pt-6 border-t border-slate-250 text-slate-500">
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                      <p className="leading-relaxed text-[10px]">The {dept.name} Status Sheet presents complete compliance records verified against the hardware ledger registry.</p>
+                    </div>
+                    <div className="flex flex-col justify-end text-right pr-4 font-sans text-xs">
+                      <p className="font-black text-slate-900">CERTIFIED SYSTEM</p>
+                      <p className="text-[10.5px] text-slate-400 mt-1">Enterprise Operations</p>
+                      <div className="border-b border-dashed border-slate-300 w-1/2 ml-auto mt-12 mb-1"></div>
+                      <p className="text-[10px] text-slate-400 italic">Central Systems Registry validation</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+    </div>
+  );
+}

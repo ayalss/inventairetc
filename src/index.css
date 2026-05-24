@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+
+
+@layer utilities {
+  .workspace-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .workspace-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .workspace-scroll::-webkit-scrollbar-thumb {
+    background: #E5E5EA;
+    border-radius: 3px;
+  }
+  .workspace-scroll::-webkit-scrollbar-thumb:hover {
+    background: #D1D1D6;
+  }
+}
+
+/* Print Overrides */
+@media print {
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+    height: auto;
+    overflow: visible !important;
+    background: white;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .printable-area,
+  .printable-area * {
+    visibility: visible;
+  }
+
+  .printable-area {
+
+    /* remove layout influence */
+    position: fixed !important;
+
+    top: 0 !important;
+    left: 0 !important;
+
+    width: 100% !important;
+
+    margin: 0 !important;
+    padding: 8mm !important;
+
+    border: none !important;
+    border-radius: 0 !important;
+
+    overflow: visible !important;
+    max-height: none !important;
+    min-height: auto !important;
+
+    transform: none !important;
+  }
+
+  .workspace-scroll,
+  .overflow-y-auto,
+  .overflow-hidden,
+  .max-h-110,
+  .rounded-2xl,
+  .rounded-3xl {
+
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 5mm;
+  }
+
+}

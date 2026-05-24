@@ -1,0 +1,419 @@
+import React, { useState, useMemo } from 'react';
+import { Material, Department } from '../types';
+import { FileText, Download, Printer, Filter, DollarSign, Cpu, Loader2, Sparkles, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
+
+interface ReportsTabProps {
+  materials: Material[];
+  departments: Department[];
+}
+
+export default function ReportsTab({ materials, departments }: ReportsTabProps) {
+  const [selectedCompany, setSelectedCompany] = useState<string>('ALL');
+  const [selectedDept, setSelectedDept] = useState<string>('ALL');
+  const [selectedType, setSelectedType] = useState<string>('ALL');
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
+
+  // Apply filters to list
+  const filteredMaterials = useMemo(() => {
+    return materials.filter(m => {
+      const matchCompany = selectedCompany === 'ALL' || m.company === selectedCompany;
+      const deptObj = departments.find(d => d.id === selectedDept);
+      const matchDept = selectedDept === 'ALL' || (deptObj && m.deptNum === deptObj.deptNum);
+      const matchType = selectedType === 'ALL' || m.type === selectedType;
+      const matchStatus = selectedStatus === 'ALL' || m.status === selectedStatus;
+      
+      const text = `${m.name} ${m.codification} ${m.serialNumber} ${m.officeNum}`.toLowerCase();
+      const matchSearch = text.includes(searchTerm.toLowerCase());
+
+      return matchCompany && matchDept && matchType && matchStatus && matchSearch;
+    });
+  }, [materials, departments, selectedCompany, selectedDept, selectedType, selectedStatus, searchTerm]);
+
+  // Calculations for KPI Cards
+  const stats = useMemo(() => {
+    const totalCount = filteredMaterials.length;
+    const totalCost = filteredMaterials.reduce((acc, current) => acc + current.cost, 0);
+    const avgCost = totalCount > 0 ? Math.round(totalCost / totalCount) : 0;
+    
+    // Status breakdowns
+    const active = filteredMaterials.filter(m => m.status === 'Active').length;
+    const repair = filteredMaterials.filter(m => m.status === 'Under Repair').length;
+    const storage = filteredMaterials.filter(m => m.status === 'In Storage').length;
+
+    // Company Distributions
+    const tcCost = filteredMaterials.filter(m => m.company === 'TC').reduce((acc, c) => acc + c.cost, 0);
+    const lxCost = filteredMaterials.filter(m => m.company === 'LX').reduce((acc, c) => acc + c.cost, 0);
+    const plCost = filteredMaterials.filter(m => m.company === 'PL').reduce((acc, c) => acc + c.cost, 0);
+
+    // Type distributions
+    const typeCounts: Record<string, number> = {};
+    filteredMaterials.forEach(m => {
+      typeCounts[m.type] = (typeCounts[m.type] || 0) + 1;
+    });
+
+    return {
+      totalCount,
+      totalCost,
+      avgCost,
+      active,
+      repair,
+      storage,
+      companyCost: { TC: tcCost, LX: lxCost, PL: plCost },
+      typeCounts
+    };
+  }, [filteredMaterials]);
+
+  // Export mock CSV
+  const handleCSVExport = () => {
+    setExportingCSV(true);
+    setTimeout(() => {
+      setExportingCSV(false);
+      
+      // Generate CSV content
+      const headers = ['Codification', 'Name', 'Type', 'Company', 'Dept #', 'Office', 'Serial No', 'Purchase Date', 'Cost', 'Status'];
+      const rows = filteredMaterials.map(m => [
+        m.codification,
+        m.name,
+        m.type,
+        m.company,
+        m.deptNum,
+        m.officeNum,
+        m.serialNumber,
+        m.purchaseDate || 'N/A',
+        `$${m.cost}`,
+        m.status
+      ]);
+      
+      const csvContent = "data:text/csv;charset=utf-8," 
+        + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `IT_inventory_report_${selectedCompany}_${selectedDept}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }, 850);
+  };
+
+  // Mock PDF Printer
+  const handlePDFExport = () => {
+    setExportingPDF(true);
+    setTimeout(() => {
+      setExportingPDF(false);
+      window.print();
+    }, 600);
+  };
+
+  const maxCompanyCost = Math.max(stats.companyCost.TC, stats.companyCost.LX, stats.companyCost.PL) || 1;
+
+  // Material unique types
+  const materialTypes = ['Printer', 'Server', 'Switch', 'Desktop', 'Screen', 'UPS', 'Laptop', 'Other'];
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto py-1">
+      {/* KPI Cards Bento Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Active Valuation */}
+
+
+        {/* KPI 2: Total Items */}
+        <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868B] block">Audited Elements</span>
+            <span className="text-2xl font-bold tracking-tight text-[#1D1D1F]">
+              {stats.totalCount} <span className="text-xs text-[#86868B] font-normal">items</span>
+            </span>
+            <span className="text-[10px] text-[#86868B] block">Across 3 companies</span>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800">
+            <Cpu className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* KPI 3: Status breakdown pills */}
+        <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm flex flex-col justify-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868B]">Inventory Status Health</span>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-[#34C759]/10 text-center py-1.5 px-2 rounded-lg border border-[#34C759]/20">
+              <span className="text-xs font-bold text-[#34C759] block">{stats.active}</span>
+              <span className="text-[9px] font-medium text-[#34C759] uppercase tracking-wide">Live</span>
+            </div>
+            <div className="bg-[#FF9500]/10 text-center py-1.5 px-2 rounded-lg border border-[#FF9500]/20">
+              <span className="text-xs font-bold text-[#FF9500] block">{stats.repair}</span>
+              <span className="text-[9px] font-medium text-[#FF9500] uppercase tracking-wide">Repair</span>
+            </div>
+            <div className="bg-[#FF1E1E]/10 text-center py-1.5 px-2 rounded-lg border border-[#FF1E1E]/20">
+              <span className="text-xs font-bold text-[#FF1E1E] block">{stats.storage}</span>
+              <span className="text-[9px] font-medium text-[#FF1E1E] uppercase tracking-wide">Stock</span>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4: Mean Device Value */}
+
+      </div>
+
+      {/* Visual Analytics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Cost distribution by Company bar meters */}
+        <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm space-y-4">
+          <div>
+            <h4 className="text-xs font-bold text-[#1D1D1F] tracking-wider uppercase">IT Investments by Entity</h4>
+            <p className="text-[11px] text-[#86868B]">Total book capital allocation across TC, LX, and PL operations.</p>
+          </div>
+          
+          <div className="space-y-4 pt-2">
+            {[
+              { id: 'TC', label: 'TC Operations Group', color: 'bg-[#FF1E1E]', val: stats.companyCost.TC },
+              { id: 'LX', label: 'LX Corporate Systems', color: 'bg-slate-900', val: stats.companyCost.LX },
+              { id: 'PL', label: 'PL Industrial & Labs', color: 'bg-[#FF9500]', val: stats.companyCost.PL }
+            ].map((company) => {
+              const pct = maxCompanyCost > 0 ? (company.val / maxCompanyCost) * 100 : 0;
+              return (
+                <div key={company.id} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-[#424245] font-mono">{company.id} <span className="font-sans font-normal text-[#86868B] pr-1">—</span> <span className="font-sans font-medium text-[#86868B]">{company.label}</span></span>
+                    <span className="font-bold text-[#1D1D1F] font-mono">${company.val.toLocaleString()}</span>
+                  </div>
+                  <div className="w-full h-2 bg-[#F5F5F7] rounded-full overflow-hidden border border-[#D2D2D7]/40">
+                    <div
+                      className={`h-full ${company.color} rounded-full transition-all duration-1000`}
+                      style={{ width: `${pct}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Asset Type breakdown with SVG visual pie/donut representation */}
+        <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm space-y-4">
+          <div>
+            <h4 className="text-xs font-bold text-[#1D1D1F] tracking-wider uppercase">Equipment Type Distribution</h4>
+            <p className="text-[11px] text-[#86868B]">Quantity layout of hardware classes across selected parameters.</p>
+          </div>
+
+          <div className="grid grid-cols-4 sm:grid-cols-4 gap-3 pt-1">
+            {materialTypes.map((type) => {
+              const count = stats.typeCounts[type] || 0;
+              const total = stats.totalCount || 1;
+              const pct = Math.round((count / total) * 100);
+              return (
+                <div key={type} className="text-center p-2 rounded bg-[#F5F5F7] border border-[#D2D2D7]/50 flex flex-col justify-between min-h-21.25">
+                  <span className="text-[10px] font-bold text-[#424245] truncate block uppercase">{type}</span>
+                  <span className="text-lg font-bold text-[#1D1D1F] font-mono block my-1">
+                    {count}
+                  </span>
+                  <div className="w-full bg-[#D2D2D7] h-1 rounded-full overflow-hidden">
+                    <div className="bg-[#FF1E1E] h-full" style={{ width: `${pct}%` }}></div>
+                  </div>
+                  <span className="text-[9px] font-semibold text-[#86868B] block mt-1">{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Reports Grid Control Center */}
+      <div className="bg-white rounded-2xl border border-[#D2D2D7] shadow-sm overflow-hidden">
+        {/* Controls Panel */}
+        <div className="p-5 border-b border-[#F5F5F7] bg-[#F5F5F7]/30 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-[#86868B]" />
+              <h4 className="text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">Configure Sheet Report Filters</h4>
+            </div>
+            
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={handleCSVExport}
+                disabled={exportingCSV}
+                className="px-4 py-2 bg-white hover:bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-none disabled:opacity-60"
+              >
+                {exportingCSV ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                Export CSV
+              </button>
+              <button
+                onClick={handlePDFExport}
+                disabled={exportingPDF}
+                className="px-4 py-2 bg-[#FF1E1E] hover:bg-[#E01B1B] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-none disabled:opacity-60"
+              >
+                {exportingPDF ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Printer className="w-3.5 h-3.5" />
+                )}
+                Print Report
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            {/* Search items inside spreadsheet */}
+            <div className="md:col-span-1">
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Asset Reference</label>
+              <input
+                type="text"
+                placeholder="Search matching words..."
+                className="w-full text-xs bg-[#F5F5F7] hover:bg-[#F5F5F7]/80 border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] placeholder-[#86868B] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Filter Company */}
+            <div>
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Company Entity</label>
+              <select
+                className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
+                value={selectedCompany}
+                onChange={(e) => setSelectedCompany(e.target.value)}
+              >
+                <option value="ALL">All Companies (TC, LX, PL)</option>
+                <option value="TC">TC (Telecom Group)</option>
+                <option value="LX">LX (Logistics & Networks)</option>
+                <option value="PL">PL (Plants & Hardware)</option>
+              </select>
+            </div>
+
+            {/* Filter Dept */}
+            <div>
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Department</label>
+              <select
+                className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
+                value={selectedDept}
+                onChange={(e) => setSelectedDept(e.target.value)}
+              >
+                <option value="ALL">All Departments</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name} (#{d.deptNum})</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Type */}
+            <div>
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Equipment Type</label>
+              <select
+                className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+              >
+                <option value="ALL">All Equipment Categories</option>
+                {materialTypes.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Status */}
+            <div>
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Operational Status</label>
+              <select
+                className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="Active">Active (Live in Office)</option>
+                <option value="Under Repair">Under Repair</option>
+                <option value="In Storage">In Storage (Reserve stock)</option>
+                <option value="Retired">Retired / Written-off</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Spreadsheet Table View */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[#FAF9F6] border-b border-[#D2D2D7] text-[10px] font-bold text-[#86868B] uppercase tracking-wider">
+                <th className="py-3 px-5">ID Codification</th>
+                <th className="py-3 px-4">Asset Name</th>
+                <th className="py-3 px-4">Entity</th>
+                <th className="py-3 px-4">Dept No</th>
+                <th className="py-3 px-4">Office Ref</th>
+                <th className="py-3 px-4">Serial Number</th>              
+                <th className="py-3 px-4">notes</th>
+                <th className="py-3 px-4">Acquisition</th>
+                <th className="py-3 px-4 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F5F5F7] text-xs text-[#424245]">
+              {filteredMaterials.length > 0 ? (
+                filteredMaterials.map((m) => (
+                  <tr key={m.id} className="hover:bg-[#F5F5F7]/30 transition-colors">
+                    <td className="py-3 px-5 font-mono font-bold text-[#1D1D1F] tracking-wider">
+                      {m.codification}
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-[#1D1D1F]">
+                      {m.name}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold font-mono bg-[#F5F5F7] text-[#424245] border border-[#D2D2D7]/40">
+                        {m.company}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 font-mono text-[#86868B]">
+                      #{m.deptNum}
+                    </td>
+                    <td className="py-3 px-4 font-medium text-[#424245]">
+                      {m.officeNum}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-[11px] text-[#86868B]">
+                      {m.serialNumber}
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-[#1D1D1F]">
+                      ${m.cost.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-[11px] text-[#86868B]">
+                      {m.purchaseDate || '—'}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex justify-center">
+                        <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                          m.status === 'Active' ? 'bg-[#34C759]/11 text-[#34C759]' :
+                          m.status === 'Under Repair' ? 'bg-[#FF9500]/11 text-[#FF9500]' :
+                          m.status === 'In Storage' ? 'bg-[#FF1E1E]/11 text-[#FF1E1E]' :
+                          'bg-[#86868B]/11 text-[#86868B]'
+                        }`}>
+                          {m.status}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={9} className="py-8 text-center text-[#86868B]">
+                    <div className="space-y-1">
+                      <AlertCircle className="w-8 h-8 text-[#86868B]/40 mx-auto" />
+                      <p className="font-semibold text-[#1D1D1F]">No assets match your active filter configurations</p>
+                      <p className="text-[11px]">Refine your filters, search queries, or selections above</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Table Summary Footer */}
+
+      </div>
+    </div>
+  );
+}
