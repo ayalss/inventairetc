@@ -48,13 +48,7 @@ export default function LoginPage({ onLoginSuccess, defaultEmail }: LoginPagePro
     }
   };
 
-  const handleBypass = () => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      onLoginSuccess('ayalounis679@gmail.com');
-    }, 600);
-  };
+
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden font-sans">
@@ -149,7 +143,7 @@ export default function LoginPage({ onLoginSuccess, defaultEmail }: LoginPagePro
               type="submit"
               disabled={isSubmitting}
               className="w-full py-3 bg-linear-to-r from-red-500 via-[#FF1E1E] to-red-800 hover:brightness-110 active:scale-[0.99] text-white font-bold rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
+            > LOGIN
               {isSubmitting ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -161,17 +155,7 @@ export default function LoginPage({ onLoginSuccess, defaultEmail }: LoginPagePro
             </button>
           </form>
 
-          {/* Bypass */}
-          <div className="pt-4 border-t border-slate-900 flex justify-end">
-            <button
-              type="button"
-              onClick={handleBypass}
-              disabled={isSubmitting}
-              className="text-[10px] font-bold text-[#FF1E1E] hover:text-white uppercase tracking-wider font-mono border border-[#FF1E1E]/40 hover:border-[#FF1E1E] rounded-xl px-3.5 py-1.5 transition-all bg-[#FF1E1E]/5 cursor-pointer"
-            >
-              ⚡ Fast Pass-through Bypass
-            </button>
-          </div>
+
         </div>
 
       </div>

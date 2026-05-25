@@ -357,7 +357,7 @@ export default function PortalView({
                   }`}>
                     <div className="flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5" />
-                      <span>Suite: {manager.officeNum}</span>
+                      <span>office number: {manager.officeNum}</span>
                     </div>
                     <span className="text-[10px] font-bold opacity-80">{worksCount || 0} nested desks</span>
                   </div>
@@ -381,7 +381,7 @@ export default function PortalView({
                 className="px-2 py-0.5 bg-emerald-600/10 hover:bg-emerald-600/15 border border-emerald-600/20 rounded-md text-[9px] font-bold text-emerald-600 transition-all flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-2.5 h-2.5" />
-                <span>Add Desk/Card</span>
+                <span>Add Desk/office</span>
               </button>
             </div>
 
@@ -445,7 +445,7 @@ export default function PortalView({
                             {isMngNode ? `${activeManager?.company} Group — Full Dept. Overview` : (node.role || 'Team Desk')}
                           </span>
                           <span className={`text-[10px] font-mono block mt-1 ${isSelected ? 'text-inherit/80' : 'text-[#86868B]'}`}>
-                            Suite Reference: {node.officeNum}
+                            office number: {node.officeNum}
                           </span>
                         </div>
                       </div>
@@ -557,7 +557,7 @@ export default function PortalView({
                             <div className="flex items-center gap-3.5 text-[10px] text-[#86868B] font-mono">
                               <span>S/N: {material.serialNumber}</span>
                               <span>•</span>
-                              <span>Valuation: ${material.cost.toLocaleString()}</span>
+                              <span>COST: DA{material.cost.toLocaleString()}</span>
                             </div>
 
                             {/* ── Notes row — only when present ── */}
@@ -588,8 +588,8 @@ export default function PortalView({
 
               {activeSubNode && nodeMaterials.length > 0 && (
                 <div className="bg-[#F5F5F7] p-3.5 border-t border-[#D2D2D7] flex justify-between items-center text-[10px] font-bold text-[#86868B] tracking-wider uppercase">
-                  <span>Target Node: {activeSubNode.officeNum}</span>
-                  <span>Total Capital: ${nodeMaterials.reduce((acc, c) => acc + c.cost, 0).toLocaleString()}</span>
+                  
+                  <span>Total Cost: DA{nodeMaterials.reduce((acc, c) => acc + c.cost, 0).toLocaleString()}</span>
                 </div>
               )}
             </div>
@@ -624,8 +624,8 @@ export default function PortalView({
                     </h3>
                     <p className="text-[10.5px] text-[#86868B] mt-0.5">
                       {activeCreationType === 'manager' && `Appoint responsible supervisor for ${selectedDept.name}`}
-                      {activeCreationType === 'subnode' && `Nest structural element under ${activeManager?.name}`}
-                      {activeCreationType === 'material' && `Catalog individual IT device for desk "${activeSubNode?.name}"`}
+                      {activeCreationType === 'subnode' && `Structural element under ${activeManager?.name}`}
+                      {activeCreationType === 'material' && ` individual IT device for desk "${activeSubNode?.name}"`}
                     </p>
                   </div>
                   <button onClick={() => setActiveCreationType(null)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-all cursor-pointer">
@@ -659,7 +659,7 @@ export default function PortalView({
                     <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
                       <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                       <span className="text-[10px] text-blue-800 font-semibold">
-                        Office suite will be auto-assigned: <span className="font-black font-mono">#{managers.length + 1}</span>
+                        Office number will be auto-assigned: <span className="font-black font-mono">#{managers.length + 1}</span>
                       </span>
                     </div>
 
@@ -688,7 +688,7 @@ export default function PortalView({
                 {activeCreationType === 'subnode' && (
                   <form onSubmit={handleAddSubNodeSubmit} className="space-y-4">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Responsible Desk/Person Name</label>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Person Name</label>
                       <input type="text" required placeholder="e.g. Helpdesk station, Rachel (Lab Team)"
                         className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                         value={nodeName} onChange={(e) => setNodeName(e.target.value)} />
@@ -771,7 +771,7 @@ export default function PortalView({
                           value={matSerial} onChange={(e) => setMatSerial(e.target.value)} />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Price valuation ($ USD)</label>
+                        <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Price valuation (DA)</label>
                         <input type="number" placeholder="e.g. 1499"
                           className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none"
                           value={matCost} onChange={(e) => setMatCost(e.target.value)} />

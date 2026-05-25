@@ -137,7 +137,7 @@ export default function QrScannerTab({ materials, onSelectMaterial }: QrScannerT
 
           {!streaming && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-neutral-500">
-              <div className="w-14 h-14 rounded-full bg-neutral-800 flex items-center justify-center text-3xl">📷</div>
+              
               <span className="text-xs">Camera inactive</span>
             </div>
           )}
@@ -168,7 +168,7 @@ export default function QrScannerTab({ materials, onSelectMaterial }: QrScannerT
                 : 'bg-red-600 text-white hover:bg-red-700'
             }`}
           >
-            {streaming ? '⏹ Stop Camera' : '📷 Start Camera'}
+            {streaming ? '⏹ Stop Camera' : 'Start Camera'}
           </button>
 
           {error && <p className="text-[11px] text-red-500 text-center">{error}</p>}

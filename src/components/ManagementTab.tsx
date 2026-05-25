@@ -242,165 +242,123 @@ export default function ManagementTab({
     const totalCost = selectedMaterials.reduce((s, m) => s + m.cost, 0);
     const slipNum   = `${String(new Date().getFullYear()).slice(-2)}${String(Date.now()).slice(-5)}`;
 
-    return (
-      <div className="printable-area font-sans text-slate-900 bg-white text-[11px] leading-relaxed space-y-5 p-10 print:p-0 border border-slate-300 rounded-2xl print:border-none print:rounded-none">
+    const currentDate = new Date().toLocaleDateString("fr-FR");
 
-        {/* ── HEADER ── */}
-        <div className="flex justify-between items-start border-b-2 border-[#CC0000] pb-4">
-          <div className="flex items-center gap-3">
-            {/* Technoceram red-T logo approximation */}
-            <div className="w-12 h-12 bg-[#CC0000] rounded-sm flex items-center justify-center shrink-0">
-              <span className="text-white font-black text-lg font-mono" style={{letterSpacing:'-2px'}}>T</span>
-            </div>
-            <div>
-              <p className="font-black text-base tracking-widest text-slate-950 uppercase">TECHNOCERAM</p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Système de Gestion des Actifs Informatiques</p>
-            </div>
-          </div>
-          <div className="text-right font-sans">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">N° de document</p>
-            <p className="font-black font-mono text-slate-900 mt-0.5">N° : {slipNum}/2025</p>
-            <p className="text-[9px] text-slate-400 mt-1">Entité : <strong>{mng?.company || '—'} Group</strong></p>
-          </div>
-        </div>
+return (
+  <div
+    className="
+      printable-area
+      bg-white text-black
+      w-[210mm] min-h-[297mm]
+      mx-auto
+      px-[20mm] py-[18mm]
+      font-sans text-[13px] leading-[1.45]
+      print:w-[210mm] print:min-h-[297mm]
+      box-border flex flex-col
+    "
+  >
 
-        {/* ── TITLE ── */}
-        <div className="text-center py-3">
-          <h2 className="text-sm font-black uppercase tracking-widest text-slate-950 border-b border-t border-slate-300 py-2 inline-block px-6">
-            Bon de Décharge pour Matériel Informatique
-          </h2>
-        </div>
-
-        {/* ── INTRO PARAGRAPH ── */}
-        <div className="space-y-2 text-[11px] leading-[1.8]">
-          <p>
-            Je soussigné(e), <strong>{node?.name || '________________'}</strong>,{' '}
-            <strong>{node?.role || mng?.role || '________________'}</strong>{' '}
-            {dept ? <>de la <strong>SARL TECHNOCERAM</strong></> : 'de TECHNOCERAM'},
-            déclare par la présente avoir reçu le matériel informatique suivant, et fournir, à cet
-            effet, une copie de ma carte d'identité nationale n°{' '}
-            <strong>{(node as any)?.cin ? <span className="font-mono">{(node as any).cin}</span> : '____________________'}</strong>.
-          </p>
-        </div>
-
-        {/* ── RECIPIENT + ASSIGNER BLOCK ── */}
-        <div className="grid grid-cols-2 gap-6">
-          <div className="p-3.5 border border-slate-200 rounded-xl bg-slate-50 space-y-1">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Bénéficiaire / Récepteur</p>
-            <p className="font-black text-slate-900 text-xs">{node?.name || '—'}</p>
-            {node?.role && <p className="text-[10px] text-slate-600 font-semibold">{node.role}</p>}
-            <p className="text-[10px] font-mono text-slate-500">Bureau / Salle : {node?.officeNum || '—'}</p>
-            {(node as any)?.cin && (
-              <p className="text-[10px] font-mono text-slate-500">CIN : <strong>{(node as any).cin}</strong></p>
-            )}
-          </div>
-          <div className="p-3.5 border border-slate-200 rounded-xl bg-slate-50 space-y-1">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Responsable Autorisé</p>
-            <p className="font-black text-slate-900 text-xs">{mng?.name || '—'}</p>
-            <p className="text-[10px] text-slate-600 font-semibold">{mng?.role || '—'}</p>
-            <p className="text-[10px] font-mono text-slate-400 truncate">{mng?.email || '—'}</p>
-            {mng?.cin && (
-              <p className="text-[10px] font-mono text-slate-500">CIN : <strong>{mng.cin}</strong></p>
-            )}
-          </div>
-        </div>
-
-        {/* ── EQUIPMENT TABLE ── */}
-        <div className="space-y-2">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Détail du matériel remis</p>
-          <div className="border border-slate-300 rounded-xl overflow-hidden">
-            <table className="w-full text-[10px]">
-              <thead>
-                <tr className="bg-slate-900 text-white">
-                  <th className="p-2.5 text-left font-bold tracking-wide">Désignation / Modèle</th>
-                  <th className="p-2.5 text-left font-bold tracking-wide">Marque & Modèle</th>
-                  <th className="p-2.5 text-left font-bold tracking-wide">Configuration / Specs</th>
-                  <th className="p-2.5 text-left font-bold tracking-wide">PROD ID / S/N</th>
-                  <th className="p-2.5 text-right font-bold tracking-wide">Valeur (DZD)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedMaterials.map((mat, idx) => (
-                  <tr key={mat.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="p-2.5 border-t border-slate-200">
-                      <span className="font-bold block">{mat.name}</span>
-                      <span className="text-[9px] text-slate-400 font-mono">{mat.codification}</span>
-                    </td>
-                    <td className="p-2.5 border-t border-slate-200">
-                      <span className="font-semibold">{mat.name}</span>
-                      <span className="text-[9px] text-slate-500 block">Catégorie : {mat.type}</span>
-                    </td>
-                    <td className="p-2.5 border-t border-slate-200 max-w-40">
-                      {mat.notes ? (
-                        <span className="text-slate-700 text-[9.5px] leading-tight whitespace-pre-line">{mat.notes}</span>
-                      ) : (
-                        <span className="text-slate-400 italic text-[9px]">—</span>
-                      )}
-                    </td>
-                    <td className="p-2.5 border-t border-slate-200 font-mono">
-                      <span className="block font-bold text-[#CC0000]">{mat.serialNumber}</span>
-                      {mat.purchaseDate && <span className="text-[9px] text-slate-400 block">Acq. : {mat.purchaseDate}</span>}
-                    </td>
-                    <td className="p-2.5 border-t border-slate-200 text-right font-mono font-bold">
-                      {mat.cost > 0 ? `${mat.cost.toLocaleString()} $` : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              {selectedMaterials.length > 1 && (
-                <tfoot>
-                  <tr className="bg-slate-100 border-t-2 border-slate-300">
-                    <td colSpan={4} className="p-2.5 font-black text-right text-xs text-slate-700 uppercase tracking-wider">Total Valeur :</td>
-                    <td className="p-2.5 text-right font-black font-mono text-slate-900">${totalCost.toLocaleString()}</td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-        </div>
-
-        {/* ── ENGAGEMENT TEXT ── */}
-        <div className="space-y-2 text-[10.5px] leading-[1.85] text-slate-700 border-t border-slate-200 pt-3">
-          <p>
-            Je reconnais avoir reçu ce matériel en état <strong>neuf</strong> de fonctionnement et m'engage à en faire un
-            usage approprié conformément aux politiques de sécurité informatique de l'entreprise.
-          </p>
-          <p>
-            Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la
-            confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.
-          </p>
-          <p>
-            En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel
-            en bon état dans les plus brefs délais.
-          </p>
-        </div>
-
-        {/* ── SIGNATURES ── */}
-        <div className="grid grid-cols-2 gap-16 pt-8 text-xs font-sans">
-          <div className="text-center space-y-12">
-            <p className="font-black text-slate-900 uppercase tracking-wide text-[10.5px]">Signature du Bénéficiaire</p>
-            <div>
-              <div className="border-b border-slate-400 w-3/4 mx-auto mb-1.5"></div>
-              <p className="text-[9px] text-slate-400">Date & Signature : ____________________</p>
-            </div>
-          </div>
-          <div className="text-center space-y-12">
-            <p className="font-black text-slate-900 uppercase tracking-wide text-[10.5px]">Visa du Responsable Hiérarchique</p>
-            <div>
-              <div className="border-b border-slate-400 w-3/4 mx-auto mb-1.5"></div>
-              <p className="text-[9px] text-slate-400">Cachet & Signature : ____________________</p>
-            </div>
-          </div>
-        </div>
-
-        {/* ── FOOTER ── */}
-        <div className="border-t border-slate-200 pt-4 text-center text-[8.5px] text-slate-400 space-y-0.5">
-          <p className="font-bold uppercase tracking-widest text-slate-500">SARL TECHNOCERAM — Document Officiel</p>
-          <p>Fait à Batna, le {currentDate} • Réf. : DEC-{slipNum} • Entité : {mng?.company || '—'} Group</p>
-          <p className="italic">Généré automatiquement par le Système de Gestion des Actifs — toute modification manuelle invalide ce document.</p>
-        </div>
+    {/* HEADER */}
+    <div>
+      <div className="flex items-start gap-4">
+        <img
+          src="/tc.jpg"
+          alt="TECHNOCERAM"
+          className="w-16 object-contain"
+        />
+        <h1 className="font-black text-[28px] leading-none mt-1">
+          TECHNOCERAM
+        </h1>
       </div>
-    );
+      <div className="border-b-[3px] border-red-600 mt-3" />
+      <p className="font-semibold text-[15px] mt-5">
+        N° : ______ /2026
+      </p>
+    </div>
+
+    {/* GAP between N° and TITLE */}
+    <div className="mt-14 mb-10 text-center">
+      <h2 className="font-black text-[22px]">
+        Bon de Décharge pour Matériel Informatique
+      </h2>
+    </div>
+
+    {/* GAP between TITLE and JE SOUSSIGNÉ */}
+    <div className="mt-6 text-[15px] leading-[1.65]">
+      <p>
+        Je soussigné(e),{" "}
+        <strong>{node?.name || "________________"}</strong>,{" "}
+        <strong>{node?.role || mng?.role || "________________"}</strong>{" "}
+        de la SARL TECHNOCERAM, déclare par la présente avoir reçu
+        le matériel informatique suivant, et fournir, à cet effet,
+        une copie de ma carte d'identité nationale n°{" "}
+        <strong>{(node as any)?.cin || "________________"}</strong>.
+      </p>
+    </div>
+
+    {/* MATERIAL */}
+    <div className="mt-5 text-[15px] leading-[1.55] space-y-0.5">
+      {selectedMaterials.map((mat) => (
+        <div key={mat.id} className="space-y-0.5">
+          <p>
+            <strong>{mat.type} :</strong>{" "}{mat.name}
+          </p>
+          <p>
+            <strong>Marque et modèle :</strong>{" "}{mat.name}
+          </p>
+          {mat.notes && (
+            <p>
+              <strong>CONFIGURATION :</strong>{" "}{mat.notes}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+
+    {/* COMMITMENTS */}
+    <div className="mt-7 text-[15px] leading-[1.65] space-y-4">
+      <p>
+        Je reconnais avoir reçu ce matériel en état{" "}
+        <strong>neuf</strong> de fonctionnement et m'engage à en faire
+        un usage approprié conformément aux politiques de sécurité
+        informatique de l'entreprise.
+      </p>
+      <p>
+        Je m'engage également à prendre toutes les mesures nécessaires
+        pour assurer la sécurité et la confidentialité des données
+        stockées sur cet appareil, ainsi que pour prévenir tout
+        dommage, perte ou vol.
+      </p>
+      <p>
+        En cas de départ de l'entreprise ou de transfert de
+        responsabilité, je m'engage à restituer ce matériel en bon
+        état dans les plus brefs délais.
+      </p>
+    </div>
+
+    {/* FLEXIBLE SPACER — pushes signature to bottom */}
+    <div className="flex-1 min-h-10" />
+
+    {/* SIGNATURE — right aligned, exactly like PDF */}
+    <div className="flex justify-end">
+      <div className="w-64 mt-14">
+        <p className="text-[15px] mb-2">
+          Fait à BATNA, le {currentDate}
+        </p>
+        <p className="text-[15px] mb-16 mt-16">
+          Signature : ___________________________
+        </p>
+        <p className="font-bold uppercase text-[15px]">
+          {node?.name}
+        </p>
+        <p className="font-semibold text-[15px]">
+          SARL TECHNOCERAM
+        </p>
+      </div>
+    </div>
+
+  </div>
+)
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -497,7 +455,7 @@ export default function ManagementTab({
                         value={matSerial} onChange={(e) => setMatSerial(e.target.value)} />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Purchase Price ($)</label>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Purchase Price (DA)</label>
                       <input type="number" placeholder="e.g. 1500"
                         className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                         value={matCost} onChange={(e) => setMatCost(e.target.value)} />
@@ -559,15 +517,7 @@ export default function ManagementTab({
                   </div>
 
                   {/* ── NEW: CIN field ── */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5 items-center gap-1.5">
-                      <CreditCard className="w-3 h-3 text-slate-400" />
-                      Carte d'Identité Nationale (CIN) <span className="text-slate-400 normal-case font-normal">(optional)</span>
-                    </label>
-                    <input type="text" placeholder="e.g. 109840117076020002"
-                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
-                      value={nodeCin} onChange={(e) => setNodeCin(e.target.value)} />
-                  </div>
+
 
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Direct Responsible Head (Manager)</label>
@@ -625,16 +575,7 @@ export default function ManagementTab({
                     className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                     value={mngRole} onChange={(e) => setMngRole(e.target.value)} />
                 </div>
-                {/* ── NEW: CIN for manager ── */}
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5 items-center gap-1.5">
-                    <CreditCard className="w-3 h-3 text-slate-400" />
-                    Carte d'Identité Nationale (CIN) <span className="text-slate-400 normal-case font-normal">(optional)</span>
-                  </label>
-                  <input type="text" placeholder="e.g. 109840117076020002"
-                    className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
-                    value={mngCin} onChange={(e) => setMngCin(e.target.value)} />
-                </div>
+
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1025,7 +966,7 @@ export default function ManagementTab({
                     <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Serial Number</label>
                       <input type="text" required className="font-mono w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.serialNumber}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, serialNumber: e.target.value } })} /></div>
-                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Cost ($)</label>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Cost (DA)</label>
                       <input type="number" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.cost}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, cost: Number(e.target.value) } })} /></div>
                   </div>
@@ -1173,7 +1114,7 @@ export default function ManagementTab({
                                     <tr className="bg-slate-100 text-slate-950 font-bold border-b border-slate-300">
                                       <th className="p-2">System Code</th><th className="p-2">Model / Name</th>
                                       <th className="p-2 text-center">Status</th><th className="p-2">Serial</th>
-                                      <th className="p-2 text-right">Value ($)</th>
+                                      <th className="p-2 text-right">Value (DA)</th>
                                     </tr>
                                   </thead>
                                   <tbody>
