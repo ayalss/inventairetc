@@ -1,23 +1,32 @@
-import React, { useState, useMemo } from 'react';
-import { Material, Department } from '../types';
-import { FileText, Download, Printer, Filter, DollarSign, Cpu, Loader2, Sparkles, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
-
+import React, { useState, useMemo, useEffect } from 'react';
+import { Material, Department, SubNode } from '../types';
+import { Download, Printer, Filter, Cpu, Loader2, AlertCircle } from 'lucide-react';
+import * as XLSX from 'xlsx-js-style';
 interface ReportsTabProps {
   materials: Material[];
   departments: Department[];
 }
 
 export default function ReportsTab({ materials, departments }: ReportsTabProps) {
+  const [subNodes, setSubNodes] = useState<SubNode[]>([]);
+
+  // Fetch subnodes directly from the API — same source as PortalView
+  useEffect(() => {
+    fetch('/api/subnodes')
+      .then(r => r.json())
+      .then(data => setSubNodes(Array.isArray(data) ? data : []))
+      .catch(() => setSubNodes([]));
+  }, []);
+
   const [selectedCompany, setSelectedCompany] = useState<string>('ALL');
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  
+
   const [exportingCSV, setExportingCSV] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
 
-  // Apply filters to list
   const filteredMaterials = useMemo(() => {
     return materials.filter(m => {
       const matchCompany = selectedCompany === 'ALL' || m.company === selectedCompany;
@@ -25,102 +34,157 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
       const matchDept = selectedDept === 'ALL' || (deptObj && m.deptNum === deptObj.deptNum);
       const matchType = selectedType === 'ALL' || m.type === selectedType;
       const matchStatus = selectedStatus === 'ALL' || m.status === selectedStatus;
-      
-      const text = `${m.name} ${m.codification} ${m.serialNumber} ${m.officeNum}`.toLowerCase();
+      const subNode = subNodes.find(s => s.id === m.assignedNodeId);
+      const deptName = departments.find(d => d.deptNum === m.deptNum)?.name ?? '';
+      const text = `${m.name} ${m.codification} ${m.serialNumber} ${subNode?.name ?? ''} ${deptName}`.toLowerCase();
       const matchSearch = text.includes(searchTerm.toLowerCase());
-
       return matchCompany && matchDept && matchType && matchStatus && matchSearch;
     });
-  }, [materials, departments, selectedCompany, selectedDept, selectedType, selectedStatus, searchTerm]);
+  }, [materials, departments, subNodes, selectedCompany, selectedDept, selectedType, selectedStatus, searchTerm]);
 
-  // Calculations for KPI Cards
   const stats = useMemo(() => {
-    const totalCount = filteredMaterials.length;
-    const totalCost = filteredMaterials.reduce((acc, current) => acc + current.cost, 0);
-    const avgCost = totalCount > 0 ? Math.round(totalCost / totalCount) : 0;
-    
-    // Status breakdowns
-    const active = filteredMaterials.filter(m => m.status === 'Active').length;
-    const repair = filteredMaterials.filter(m => m.status === 'Under Repair').length;
-    const storage = filteredMaterials.filter(m => m.status === 'In Storage').length;
+  const totalCount = filteredMaterials.length;
+  const totalCost = filteredMaterials.reduce((acc, c) => acc + Number(c.cost), 0);
+  const active = filteredMaterials.filter(m => m.status === 'Active').length;
+  const repair = filteredMaterials.filter(m => m.status === 'Under Repair').length;
+  const storage = filteredMaterials.filter(m => m.status === 'In Storage').length;
+  const tcCost = materials.filter(m => m.company === 'TC').reduce((acc, c) => acc + Number(c.cost), 0);
+  const lxCost = materials.filter(m => m.company === 'LX').reduce((acc, c) => acc + Number(c.cost), 0);
+  const plCost = materials.filter(m => m.company === 'PL').reduce((acc, c) => acc + Number(c.cost), 0);
+  const typeCounts: Record<string, number> = {};
+  filteredMaterials.forEach(m => { typeCounts[m.type] = (typeCounts[m.type] || 0) + 1; });
+  return { totalCount, totalCost, active, repair, storage, companyCost: { TC: tcCost, LX: lxCost, PL: plCost }, typeCounts };
+}, [filteredMaterials, materials]);
 
-    // Company Distributions
-    const tcCost = filteredMaterials.filter(m => m.company === 'TC').reduce((acc, c) => acc + c.cost, 0);
-    const lxCost = filteredMaterials.filter(m => m.company === 'LX').reduce((acc, c) => acc + c.cost, 0);
-    const plCost = filteredMaterials.filter(m => m.company === 'PL').reduce((acc, c) => acc + c.cost, 0);
+const handleCSVExport = () => {
+  setExportingCSV(true);
 
-    // Type distributions
-    const typeCounts: Record<string, number> = {};
-    filteredMaterials.forEach(m => {
-      typeCounts[m.type] = (typeCounts[m.type] || 0) + 1;
-    });
+  setTimeout(() => {
+    try {
+      const data = filteredMaterials.map(m => {
+        const deptName =
+          departments.find(d => d.deptNum === m.deptNum)?.name ?? '—';
 
-    return {
-      totalCount,
-      totalCost,
-      avgCost,
-      active,
-      repair,
-      storage,
-      companyCost: { TC: tcCost, LX: lxCost, PL: plCost },
-      typeCounts
-    };
-  }, [filteredMaterials]);
+        const subNodeName =
+          subNodes.find(s => s.id === m.assignedNodeId)?.name ?? '—';
 
-  // Export mock CSV
-  const handleCSVExport = () => {
-    setExportingCSV(true);
-    setTimeout(() => {
+        return {
+          Codification: m.codification,
+          Asset_Name: m.name,
+          Entity: m.company,
+          Department: deptName,
+          Sub_Node: subNodeName,
+          Serial_Number: m.serialNumber,
+          Notes: m.notes || '',
+          Status: m.status
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(data);
+
+      // Auto width columns
+      worksheet['!cols'] = [
+        { wch: 18 },
+        { wch: 25 },
+        { wch: 12 },
+        { wch: 25 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 30 },
+        { wch: 15 }
+      ];
+
+      const workbook = XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        'Inventory Report'
+      );
+
+      XLSX.writeFile(
+        workbook,
+        `Inventory_Report_${selectedCompany}_${selectedDept}.xlsx`
+      );
+
+    } finally {
       setExportingCSV(false);
-      
-      // Generate CSV content
-      const headers = ['Codification', 'Name', 'Type', 'Company', 'Dept #', 'Office', 'Serial No', 'Purchase Date', 'Cost', 'Status'];
-      const rows = filteredMaterials.map(m => [
-        m.codification,
-        m.name,
-        m.type,
-        m.company,
-        m.deptNum,
-        m.officeNum,
-        m.serialNumber,
-        m.purchaseDate || 'N/A',
-        `$${m.cost}`,
-        m.status
-      ]);
-      
-      const csvContent = "data:text/csv;charset=utf-8," 
-        + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `IT_inventory_report_${selectedCompany}_${selectedDept}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }, 850);
-  };
+    }
 
-  // Mock PDF Printer
+  }, 300);
+};
   const handlePDFExport = () => {
-    setExportingPDF(true);
-    setTimeout(() => {
-      setExportingPDF(false);
-      window.print();
-    }, 600);
-  };
+  setExportingPDF(true);
+
+  const styleId = 'report-print-style';
+
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+
+    // 👇 PUT THIS EXACTLY HERE
+    style.innerHTML = `
+      @media print {
+
+        body * {
+          visibility: hidden;
+        }
+
+        #report-print-root,
+        #report-print-root * {
+          visibility: visible;
+        }
+
+        #report-print-root {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          background: white;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 10px;
+        }
+
+        th, td {
+          border: 1px solid #ccc;
+          padding: 6px;
+        }
+
+        thead {
+          display: table-header-group;
+        }
+
+        tr {
+          page-break-inside: avoid;
+        }
+
+        .no-print {
+          display: none !important;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  setTimeout(() => {
+    setExportingPDF(false);
+    window.print();
+  }, 300);
+};
 
   const maxCompanyCost = Math.max(stats.companyCost.TC, stats.companyCost.LX, stats.companyCost.PL) || 1;
-
-  // Material unique types
-  const materialTypes = ['Printer', 'Server', 'Switch', 'Desktop', 'Screen', 'UPS', 'Laptop', 'Other'];
+  const materialTypes = ['Printer', 'Server', 'Switch', 'Desktop', 'Screen', 'UPS', 'Laptop', 'Mouse' , 'Keyboard' ,   'Phone' , 'Cable' , 'Desk Phone' , 'Flash Disque' , 'Other'];
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-1">
-      {/* KPI Cards Bento Grid */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Active Valuation */}
-
+        {/* KPI 1: placeholder */}
 
         {/* KPI 2: Total Items */}
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm flex items-center justify-between">
@@ -136,7 +200,7 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
           </div>
         </div>
 
-        {/* KPI 3: Status breakdown pills */}
+        {/* KPI 3: Status */}
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm flex flex-col justify-center gap-2">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868B]">Inventory Status Health</span>
           <div className="grid grid-cols-3 gap-2">
@@ -155,37 +219,31 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
           </div>
         </div>
 
-        {/* KPI 4: Mean Device Value */}
-
+        {/* KPI 4: placeholder */}
       </div>
 
       {/* Visual Analytics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Cost distribution by Company bar meters */}
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm space-y-4">
           <div>
             <h4 className="text-xs font-bold text-[#1D1D1F] tracking-wider uppercase">IT Investments by Entity</h4>
-            <p className="text-[11px] text-[#86868B]">Total book capital allocation across TC, LX, and PL operations.</p>
+            <p className="text-[11px] text-[#86868B]">Total book capital allocation across TC, LX, and PL .</p>
           </div>
-          
           <div className="space-y-4 pt-2">
             {[
-              { id: 'TC', label: 'TC Operations Group', color: 'bg-[#FF1E1E]', val: stats.companyCost.TC },
-              { id: 'LX', label: 'LX Corporate Systems', color: 'bg-slate-900', val: stats.companyCost.LX },
-              { id: 'PL', label: 'PL Industrial & Labs', color: 'bg-[#FF9500]', val: stats.companyCost.PL }
+              { id: 'TC', label: 'SARL TECHNOCERAM', color: 'bg-[#FF1E1E]', val: stats.companyCost.TC },
+              { id: 'LX', label: 'EURL LUXETILE', color: 'bg-slate-900', val: stats.companyCost.LX },
+              { id: 'PL', label: 'SARL PORCELENDA', color: 'bg-[#FF9500]', val: stats.companyCost.PL }
             ].map((company) => {
-              const pct = maxCompanyCost > 0 ? (company.val / maxCompanyCost) * 100 : 0;
+              const pct = (company.val / maxCompanyCost) * 100;
               return (
                 <div key={company.id} className="space-y-1.5">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-[#424245] font-mono">{company.id} <span className="font-sans font-normal text-[#86868B] pr-1">—</span> <span className="font-sans font-medium text-[#86868B]">{company.label}</span></span>
-                    <span className="font-bold text-[#1D1D1F] font-mono">${company.val.toLocaleString()}</span>
+                    <span className="font-bold text-[#1D1D1F] font-mono">{company.val.toLocaleString('fr-FR')} DA</span>
                   </div>
                   <div className="w-full h-2 bg-[#F5F5F7] rounded-full overflow-hidden border border-[#D2D2D7]/40">
-                    <div
-                      className={`h-full ${company.color} rounded-full transition-all duration-1000`}
-                      style={{ width: `${pct}%` }}
-                    ></div>
+                    <div className={`h-full ${company.color} rounded-full transition-all duration-1000`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -193,26 +251,21 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
           </div>
         </div>
 
-        {/* Asset Type breakdown with SVG visual pie/donut representation */}
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm space-y-4">
           <div>
             <h4 className="text-xs font-bold text-[#1D1D1F] tracking-wider uppercase">Equipment Type Distribution</h4>
             <p className="text-[11px] text-[#86868B]">Quantity layout of hardware classes across selected parameters.</p>
           </div>
-
-          <div className="grid grid-cols-4 sm:grid-cols-4 gap-3 pt-1">
+          <div className="grid grid-cols-4 gap-3 pt-1">
             {materialTypes.map((type) => {
               const count = stats.typeCounts[type] || 0;
-              const total = stats.totalCount || 1;
-              const pct = Math.round((count / total) * 100);
+              const pct = Math.round((count / (stats.totalCount || 1)) * 100);
               return (
-                <div key={type} className="text-center p-2 rounded bg-[#F5F5F7] border border-[#D2D2D7]/50 flex flex-col justify-between min-h-21.25">
+                <div key={type} className="text-center p-2 rounded bg-[#F5F5F7] border border-[#D2D2D7]/50 flex flex-col justify-between">
                   <span className="text-[10px] font-bold text-[#424245] truncate block uppercase">{type}</span>
-                  <span className="text-lg font-bold text-[#1D1D1F] font-mono block my-1">
-                    {count}
-                  </span>
+                  <span className="text-lg font-bold text-[#1D1D1F] font-mono block my-1">{count}</span>
                   <div className="w-full bg-[#D2D2D7] h-1 rounded-full overflow-hidden">
-                    <div className="bg-[#FF1E1E] h-full" style={{ width: `${pct}%` }}></div>
+                    <div className="bg-[#FF1E1E] h-full" style={{ width: `${pct}%` }} />
                   </div>
                   <span className="text-[9px] font-semibold text-[#86868B] block mt-1">{pct}%</span>
                 </div>
@@ -222,110 +275,83 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
         </div>
       </div>
 
-      {/* Reports Grid Control Center */}
-      <div className="bg-white rounded-2xl border border-[#D2D2D7] shadow-sm overflow-hidden">
-        {/* Controls Panel */}
-        <div className="p-5 border-b border-[#F5F5F7] bg-[#F5F5F7]/30 space-y-4">
+      {/* Table */}
+      <div
+ id="report-print-root"
+ 
+ className="bg-white rounded-2xl border border-[#D2D2D7] shadow-sm overflow-hidden"
+> 
+{/* Print Title — only visible when printing */}
+<div className="hidden print:block p-5 border-b border-[#D2D2D7]">
+  <h1 className="text-lg font-bold text-[#1D1D1F]">
+    Rapport Inventaire
+    {selectedCompany !== 'ALL' && ` — ${selectedCompany}`}
+    {selectedDept !== 'ALL' && ` / ${departments.find(d => d.id === selectedDept)?.name ?? ''}`}
+    {selectedType !== 'ALL' && ` / ${selectedType}`}
+    {selectedStatus !== 'ALL' && ` / ${selectedStatus}`}
+  </h1>
+  <p className="text-xs text-[#86868B] mt-0.5">
+    {filteredMaterials.length} élément(s) — {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+  </p>
+</div>
+        {/* Controls */}
+        <div className="no-print p-5 border-b border-[#F5F5F7] bg-[#F5F5F7]/30 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-[#86868B]" />
               <h4 className="text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">Configure Sheet Report Filters</h4>
             </div>
-            
             <div className="flex items-center gap-2.5">
-              <button
-                onClick={handleCSVExport}
-                disabled={exportingCSV}
-                className="px-4 py-2 bg-white hover:bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-none disabled:opacity-60"
-              >
-                {exportingCSV ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Download className="w-3.5 h-3.5" />
-                )}
+              <button onClick={handleCSVExport} disabled={exportingCSV}
+                className="px-4 py-2 bg-white hover:bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60">
+                {exportingCSV ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                 Export CSV
               </button>
-              <button
-                onClick={handlePDFExport}
-                disabled={exportingPDF}
-                className="px-4 py-2 bg-[#FF1E1E] hover:bg-[#E01B1B] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-none disabled:opacity-60"
-              >
-                {exportingPDF ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Printer className="w-3.5 h-3.5" />
-                )}
+              <button onClick={handlePDFExport} disabled={exportingPDF}
+                className="px-4 py-2 bg-[#FF1E1E] hover:bg-[#E01B1B] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60">
+                {exportingPDF ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
                 Print Report
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-            {/* Search items inside spreadsheet */}
             <div className="md:col-span-1">
               <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Asset Reference</label>
-              <input
-                type="text"
-                placeholder="Search matching words..."
-                className="w-full text-xs bg-[#F5F5F7] hover:bg-[#F5F5F7]/80 border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] placeholder-[#86868B] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <input type="text" placeholder="Search matching words..."
+                className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] placeholder-[#86868B] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
-
-            {/* Filter Company */}
             <div>
               <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Company Entity</label>
-              <select
-                className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
-                value={selectedCompany}
-                onChange={(e) => setSelectedCompany(e.target.value)}
-              >
+              <select className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                value={selectedCompany} onChange={(e) => setSelectedCompany(e.target.value)}>
                 <option value="ALL">All Companies (TC, LX, PL)</option>
-                <option value="TC">TC (Telecom Group)</option>
-                <option value="LX">LX (Logistics & Networks)</option>
-                <option value="PL">PL (Plants & Hardware)</option>
+                <option value="TC">TC (SARL TECHNOCERAM)</option>
+                <option value="LX">LX (EURL LUXETILE)</option>
+                <option value="PL">PL (SARL PORCELENDA)</option>
               </select>
             </div>
-
-            {/* Filter Dept */}
             <div>
               <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Department</label>
-              <select
-                className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
-                value={selectedDept}
-                onChange={(e) => setSelectedDept(e.target.value)}
-              >
+              <select className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
                 <option value="ALL">All Departments</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name} (#{d.deptNum})</option>
-                ))}
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name} (#{d.deptNum})</option>)}
               </select>
             </div>
-
-            {/* Filter Type */}
             <div>
               <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Equipment Type</label>
-              <select
-                className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-              >
+              <select className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
                 <option value="ALL">All Equipment Categories</option>
-                {materialTypes.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                {materialTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-
-            {/* Filter Status */}
             <div>
               <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Operational Status</label>
-              <select
-                className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] focus:border-[#FF1E1E]"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-              >
+              <select className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
                 <option value="ALL">All Statuses</option>
                 <option value="Active">Active (Live in Office)</option>
                 <option value="Under Repair">Under Repair</option>
@@ -336,7 +362,7 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
           </div>
         </div>
 
-        {/* Spreadsheet Table View */}
+        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -344,61 +370,62 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
                 <th className="py-3 px-5">ID Codification</th>
                 <th className="py-3 px-4">Asset Name</th>
                 <th className="py-3 px-4">Entity</th>
-                <th className="py-3 px-4">Dept No</th>
-                <th className="py-3 px-4">Office Ref</th>
-                <th className="py-3 px-4">Serial Number</th>              
-                <th className="py-3 px-4">notes</th>
-                <th className="py-3 px-4">Acquisition</th>
+                <th className="py-3 px-4">Department Name</th>
+                <th className="py-3 px-4">UTILISATEUR</th>
+                <th className="py-3 px-4">Serial Number</th>
+                <th className="py-3 px-4">ConFIguration</th>
                 <th className="py-3 px-4 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F5F5F7] text-xs text-[#424245]">
-              {filteredMaterials.length > 0 ? (
-                filteredMaterials.map((m) => (
+              {filteredMaterials.length > 0 ? filteredMaterials.map((m) => {
+                const deptName = departments.find(d => d.deptNum === m.deptNum)?.name ?? '—';
+                const subNode = subNodes.find(s => s.id === m.assignedNodeId);
+                return (
                   <tr key={m.id} className="hover:bg-[#F5F5F7]/30 transition-colors">
-                    <td className="py-3 px-5 font-mono font-bold text-[#1D1D1F] tracking-wider">
-                      {m.codification}
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-[#1D1D1F]">
-                      {m.name}
-                    </td>
+                    <td className="py-3 px-5 font-mono font-bold text-[#1D1D1F] tracking-wider">{m.codification}</td>
+                    <td className="py-3 px-4 font-semibold text-[#1D1D1F]">{m.name}</td>
                     <td className="py-3 px-4">
                       <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold font-mono bg-[#F5F5F7] text-[#424245] border border-[#D2D2D7]/40">
                         {m.company}
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-mono text-[#86868B]">
-                      #{m.deptNum}
-                    </td>
+                    <td className="py-3 px-4 font-medium text-[#424245]">{deptName}</td>
                     <td className="py-3 px-4 font-medium text-[#424245]">
-                      {m.officeNum}
+                      {subNode ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                            subNode.type === 'Office' ? 'bg-blue-400' :
+                            subNode.type === 'Person' ? 'bg-purple-400' :
+                            subNode.type === 'Cabinet' ? 'bg-amber-400' : 'bg-slate-400'
+                          }`} />
+                          {subNode.name}
+                        </span>
+                      ) : <span className="text-[#86868B]">—</span>}
                     </td>
-                    <td className="py-3 px-4 font-mono text-[11px] text-[#86868B]">
-                      {m.serialNumber}
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-[#1D1D1F]">
-                      ${m.cost.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-[11px] text-[#86868B]">
-                      {m.purchaseDate || '—'}
-                    </td>
+                    <td className="py-3 px-4 font-mono text-[11px] text-[#86868B]">{m.serialNumber}</td>
+                    <td className="py-3 px-4 text-[11px] text-[#86868B] max-w-50">
+  <div className="whitespace-pre-wrap wrap-break-word leading-relaxed">
+    {m.notes ?? '—'}
+  </div>
+</td>
                     <td className="py-3 px-4">
                       <div className="flex justify-center">
                         <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                          m.status === 'Active' ? 'bg-[#34C759]/11 text-[#34C759]' :
-                          m.status === 'Under Repair' ? 'bg-[#FF9500]/11 text-[#FF9500]' :
-                          m.status === 'In Storage' ? 'bg-[#FF1E1E]/11 text-[#FF1E1E]' :
-                          'bg-[#86868B]/11 text-[#86868B]'
+                          m.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' :
+                          m.status === 'Under Repair' ? 'bg-[#FF9500]/10 text-[#FF9500]' :
+                          m.status === 'In Storage' ? 'bg-[#FF1E1E]/10 text-[#FF1E1E]' :
+                          'bg-[#86868B]/10 text-[#86868B]'
                         }`}>
                           {m.status}
                         </span>
                       </div>
                     </td>
                   </tr>
-                ))
-              ) : (
+                );
+              }) : (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-[#86868B]">
+                  <td colSpan={8} className="py-8 text-center text-[#86868B]">
                     <div className="space-y-1">
                       <AlertCircle className="w-8 h-8 text-[#86868B]/40 mx-auto" />
                       <p className="font-semibold text-[#1D1D1F]">No assets match your active filter configurations</p>
@@ -410,9 +437,8 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
             </tbody>
           </table>
         </div>
-        
-        {/* Table Summary Footer */}
 
+        {/* Footer */}
       </div>
     </div>
   );

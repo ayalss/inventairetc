@@ -1,7 +1,7 @@
 export interface Material {
   id: string;
   name: string;
-  type: 'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Other';
+  type: 'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' |  'Keyboard' |   'Phone' |  'Cable' |  'Desk Phone' | 'Flash Disque' | 'Other';
   company: 'TC' | 'LX' | 'PL';
   deptNum: string; // e.g. "10"
   officeNum: string; // e.g. "102"

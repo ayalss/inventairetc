@@ -460,18 +460,21 @@ export default function App() {
             </div>
           ) : selectedUtility === 'portal' && selectedDeptObj ? (
             <PortalView
-              selectedDept={selectedDeptObj}
-              managers={managers}
-              subNodes={subNodes}
-              materials={materials}
-              onSelectMaterial={handleInspectAssetFromScanner}
-              selectedAssetFromScanner={selectedAssetFromScanner}
-              onClearSelectedAssetScanner={() => setSelectedAssetFromScanner(null)}
-              onAddManager={handleAddManager}
-              onAddSubNode={handleAddSubNode}
-              onAddMaterial={handleAddMaterial}
-              departments={departments}
-            />
+  selectedDept={selectedDeptObj}
+  managers={managers}
+  subNodes={subNodes}
+  materials={materials}
+  onSelectMaterial={handleInspectAssetFromScanner}
+  selectedAssetFromScanner={selectedAssetFromScanner}
+  onClearSelectedAssetScanner={() => setSelectedAssetFromScanner(null)}
+  onAddManager={handleAddManager}
+  onAddSubNode={handleAddSubNode}
+  onAddMaterial={handleAddMaterial}
+  onDeleteMaterial={handleDeleteMaterial}
+  onUpdateMaterial={handleUpdateMaterial}
+  onUpdateSubNode={handleUpdateSubNode}
+  departments={departments}
+/>
           ) : selectedUtility === 'portal' ? (
             <div className="flex flex-col items-center justify-center h-96 p-6 border border-dashed border-red-200/50 rounded-3xl bg-white/70 max-w-xl mx-auto text-center shadow-xs">
               <ShieldAlert className="w-12 h-12 text-red-500 opacity-80 mb-4" />

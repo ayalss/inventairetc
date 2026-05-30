@@ -79,7 +79,7 @@ export default function ManagementTab({
   const [nodeCin,       setNodeCin]       = useState('');
 
   const [matName,   setMatName]   = useState('');
-  const [matType,   setMatType]   = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Other'>('Desktop');
+  const [matType,   setMatType]   = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' |'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' |'Other'>('Desktop');
   const [matStatus, setMatStatus] = useState<'Active' | 'Under Repair' | 'In Storage' | 'Retired'>('Active');
   const [matSerial, setMatSerial] = useState('');
   const [matCost,   setMatCost]   = useState('');
@@ -308,7 +308,7 @@ return (
           </p>
           {mat.notes && (
             <p>
-              <strong>CONFIGURATION :</strong>{" "}{mat.notes}
+              <strong> </strong>{" "}{mat.notes}
             </p>
           )}
         </div>
@@ -343,8 +343,14 @@ return (
     <div className="flex justify-end">
       <div className="w-64 mt-14">
         <p className="text-[15px] mb-2">
-          Fait à BATNA, le {currentDate}
-        </p>
+  Fait à BATNA, le {(() => {
+    const d = selectedMaterials[0]?.purchaseDate;
+    if (!d) return currentDate;
+    const date = new Date(d);
+    date.setHours(date.getHours() + 1);
+    return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
+  })()}
+</p>
         <p className="text-[15px] mb-16 mt-16">
           Signature : ___________________________
         </p>
@@ -418,12 +424,12 @@ return (
                       value={matName} onChange={(e) => setMatName(e.target.value)} />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Infrastructure Location (Office/Desk Node)</label>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Infrastructure Location (Office/Desk)</label>
                     <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
                       value={matNodeId} onChange={(e) => setMatNodeId(e.target.value)}>
                       {subNodes.map((node) => {
                         const mng = managers.find(m => m.id === node.managerId);
-                        return <option key={node.id} value={node.id}>{node.name} (Room {node.officeNum} — {mng ? mng.name : 'Unknown'})</option>;
+                        return <option key={node.id} value={node.id}>{node.name} (Office {node.officeNum} — {mng ? mng.name : 'Unknown'})</option>;
                       })}
                     </select>
                   </div>
@@ -435,7 +441,10 @@ return (
                         <option value="Printer">Printer</option><option value="Server">Server Room Host</option>
                         <option value="Switch">Switch / Gateway</option><option value="Desktop">Desktop PC</option>
                         <option value="Screen">Screen Display</option><option value="UPS">UPS (Ondulateur)</option>
-                        <option value="Laptop">Laptop Notebook</option><option value="Other">Other / Utility</option>
+                        <option value="Laptop">Laptop Notebook</option><option value="Flash Disque">Flash Disque</option>
+                        <option value="Mouse">Mouse</option><option value="Keyboard">Keyboard</option>
+                        <option value="Phone">Phone</option><option value="Cable">Cable</option>
+                        <option value="Desk Phone">Desk Phone</option><option value="Other">Other</option>
                       </select>
                     </div>
                     <div>
@@ -468,8 +477,8 @@ return (
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
-                      Configuration / Specs & Remarks
-                      <span className="ml-1 text-[#FF1E1E] font-black">↑ Appears in Décharge</span>
+                      
+                      <span className="ml-1 text-[#FF1E1E] font-black"></span>
                     </label>
                     <textarea rows={3} placeholder="e.g. Processeur: AMD RYZEN 7 8845HS @5.1GHz&#10;RAM: 16Gb DDR5&#10;Disque: 1Tb SSD"
                       className="w-full text-xs px-3.5 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
@@ -489,7 +498,7 @@ return (
             <form onSubmit={handleSubNodeSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
                 <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><Layers className="text-emerald-600 w-4.5 h-4.5" />Create Office Desk / Card Element</h4>
-                <p className="text-[11px] text-[#86868B] mt-1">Adds a card nested under a manager. Office number is auto-assigned.</p>
+                <p className="text-[11px] text-[#86868B] mt-1">Adds a card under a manager. Office number is auto-assigned.</p>
               </div>
               <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
                 <Layers className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -951,7 +960,7 @@ return (
                     <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Location Node</label>
                       <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.assignedNodeId}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, assignedNodeId: e.target.value } })}>
-                        {subNodes.map(s => <option key={s.id} value={s.id}>{s.name} (Room {s.officeNum})</option>)}
+                        {subNodes.map(s => <option key={s.id} value={s.id}>{s.name} (office {s.officeNum})</option>)}
                       </select></div>
                     <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Category</label>
                       <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.type}
@@ -959,7 +968,10 @@ return (
                         <option value="Printer">Printer</option><option value="Server">Server</option>
                         <option value="Switch">Switch</option><option value="Desktop">Desktop PC</option>
                         <option value="Screen">Screen</option><option value="UPS">UPS</option>
-                        <option value="Laptop">Laptop</option><option value="Other">Other</option>
+                        <option value="Laptop">Laptop</option><option value="Falsh Disque">Falsh Disque</option>
+                        <option value="Mouse">Mouse</option><option value="Keyboard">Keyboard</option>
+                        <option value="Phone">Phone</option><option value="Cable">Cable</option>
+                        <option value="Desk Phone">Desk Phone</option><option value="Other">Other</option>
                       </select></div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -1104,7 +1116,7 @@ return (
                               <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
                                 <div>
                                   <span className="font-extrabold text-slate-900">{s.name}</span>
-                                  <span className="text-[10px] text-slate-500 block">Room {s.officeNum} • {s.type} • Head: {associatedManager?.name || 'Unassigned'}</span>
+                                  <span className="text-[10px] text-slate-500 block">office {s.officeNum} • {s.type} • Head: {associatedManager?.name || 'Unassigned'}</span>
                                 </div>
                                 <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded shrink-0">{stationMaterials.length} items</span>
                               </div>
