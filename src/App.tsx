@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
+
 
 import type {
   Department,
@@ -22,6 +24,7 @@ import LoginPage from './components/LoginPage.tsx';
 import { RefreshCw, HelpCircle, UserCheck, ShieldAlert, Heart, Calendar, LogOut } from 'lucide-react';
 
 export default function App() {
+  const { t, i18n } = useTranslation();
   const [authenticatedUserEmail, setAuthenticatedUserEmail] = useState<string | null>(() => {
     return localStorage.getItem('erp_authenticated_user') || null;
   });
@@ -414,7 +417,7 @@ export default function App() {
               {authenticatedUserEmail.substring(0, 2).toUpperCase()}
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs font-bold text-[#1D1D1F] leading-none">Workspace Active</p>
+              <p className="text-xs font-bold text-[#1D1D1F] leading-none">{t('workspace_active')}</p>
               <p className="text-[10px] text-[#86868B] font-medium mt-0.5">{authenticatedUserEmail}</p>
             </div>
           </div>
@@ -435,8 +438,25 @@ export default function App() {
           <div className="flex items-center gap-4">
             <span className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F5F7] text-[10px] font-mono font-medium text-[#86868B] border border-[#D2D2D7]/50">
               <Calendar className="w-3.5 h-3.5 text-[#86868B]" />
-              <span>System Clock: {new Date().toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              <span>{t('system_clock')}: {new Date().toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </span>
+
+            {/* Global Dashboard Language Switcher */}
+            <div className="flex items-center gap-1 bg-[#F5F5F7] border border-[#D2D2D7]/50 rounded-lg p-0.5">
+              {(['en', 'fr', 'ar'] as const).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => i18n.changeLanguage(lang)}
+                  className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all uppercase cursor-pointer ${
+                    i18n.language === lang
+                      ? 'bg-slate-950 text-white shadow-xs'
+                      : 'text-neutral-500 hover:text-slate-900'
+                  }`}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
 
             <button
               onClick={() => {
@@ -447,7 +467,7 @@ export default function App() {
               title="Terminate Secure Session"
             >
               <LogOut className="w-3.5 h-3.5 text-[#FF1E1E]" />
-              <span className="hidden sm:inline text-[11px]">Sign Out</span>
+              <span className="hidden sm:inline text-[11px]">{t('sign_out')}</span>
             </button>
           </div>
         </header>

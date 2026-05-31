@@ -1,0 +1,222 @@
+{
+  "authorized_signin": "Connexion Autorisée",
+  "access_restricted": "L'accès est restreint. Identifiez-vous pour décrypter les enregistrements.",
+  "workspace_active": "Espace de Travail Actif",
+  "system_clock": "Horloge Système",
+  "sign_out": "Se Déconnecter",
+  
+  "utilities": "Utilitaires",
+  "qr_scanner": "Scanner QR & Audit",
+  "user_infrastructure": "Utilisateur & Infrastructure",
+  "inventory_reports": "Rapports d'Inventaire",
+  "departments": "Départements",
+  "active": "Actif",
+  "no_custom_departments": "Aucun département personnalisé dans PostgreSQL. Ouvrez Utilisateur & Infrastructure pour enregistrer votre premier enregistrement !",
+  "enterprise_asset_sync": "Synchronisation des Actifs d'Entreprise",
+
+  "department_identity": "Identité du Département",
+  "dashboard": "Tableau de Bord",
+  "portal_desc": "Inspectez les responsables d'entreprise, les nœuds physiques et les composants matériels individuels avec suivi des codes-barres pour les entités TC, LX et PL.",
+  "appoint_heads": "Nommer des chefs",
+  "appoint_head": "Nommer un chef",
+  "active_heads": "Chefs Actifs",
+  "select_managing_head": "Sélectionner le chef de file (Chefs de département)",
+  "no_heads_appointed": "Aucun chef de département n'est actuellement nommé. Nommons-en un directement.",
+  "appoint_dept_manager": "Nommer le chef de département",
+  "elements_team_members": "Éléments (Membres de l'équipe & Bureaux)",
+  "add_desk_office": "Ajouter un bureau/bureau",
+  "no_elements": "Aucun élément",
+  "create_team_workstations": "Créez des postes de travail d'équipe ou des codes de salle spécifiques attribués sous le chef de file actif.",
+  "define_first_desk": "Définir le premier bureau",
+  "hardware_catalog": "Catalogue de Matériel",
+  "add_asset": "Ajouter un équipement",
+  "total_cost": "Coût Total",
+
+  "add_new_asset": "AJOUTER UN NOUVEL ÉQUIPEMENT",
+  "create_office_desk": "Créer un Bureau / Élément de Carte",
+  "appoint_corporate_head": "Nommer un Chef de Département d'Entreprise",
+  "define_system_department": "Définir le Département du Système",
+  "database_records_crud": "CRUD des Enregistrements de la Base de Données",
+  "assets": "Équipements",
+  "desks": "Bureaux",
+  "heads": "Chefs",
+  "depts": "Dépts",
+  "global_assets": "Actifs Mondiaux",
+  "department_desks": "Bureaux du Département",
+
+  "audited_elements": "Éléments Audités",
+  "across_3_companies": "À travers 3 entreprises",
+  "inventory_status_health": "Santé du Statut de l'Inventaire",
+  "status_live": "Actif",
+  "status_repair": "Réparation",
+  "status_stock": "Stock",
+  "it_investments_by_entity": "Investissements Informatiques par Entité",
+  "total_book_capital_allocation": "Allocation totale du capital comptable entre TC, LX et PL.",
+  "equipment_type_distribution": "Distribution des Types d'Équipement",
+  "quantity_layout_hardware_classes": "Répartition des quantités de catégories de matériel selon les paramètres sélectionnés.",
+  "configure_sheet_report_filters": "Configurer les Filtres du Rapport de Feuille",
+  "export_csv": "Exporter CSV",
+  "print_report": "Imprimer le Rapport",
+  "asset_reference": "Référence de l'Équipement",
+  "search_matching_words": "Rechercher des mots correspondants...",
+  "company_entity": "Entité de l'Entreprise",
+  "department": "Département",
+  "equipment_type": "Type d'Équipement",
+  "operational_status": "Statut Opérationnel",
+  "id_codification": "ID Codification",
+  "asset_name": "Nom de l'Équipement",
+  "entity": "Entité",
+  "department_name": "Nom du Département",
+  "utilisateur": "UTILISATEUR",
+  "serial_number": "Numéro de Série",
+  "configuration": "Configuration",
+  "status": "Statut",
+  "no_assets_match_filters": "Aucun équipement ne correspond à vos configurations de filtre actives",
+  "refine_filters_above": "Affinez vos filtres, requêtes de recherche ou sélections ci-dessus",
+  "heads_available": "disponibles",
+"group": "GROUPE",
+"office_number": "Numéro de bureau",
+"asset": "équipement",
+"assets_plural": "équipements",
+
+"please_select_specific_desk": "Veuillez sélectionner un bureau ou un poste spécifique pour affecter directement le matériel au lieu de la carte récapitulative du responsable.",
+
+"select_card_to_view_inventory": "Sélectionnez une carte gérée pour afficher la liste du matériel inventorié.",
+
+"no_hardware_allocated": "Aucun matériel affecté",
+"no_servers_switches_printers": "Aucun serveur, commutateur, imprimante, écran ou ordinateur portable n'est répertorié ici.",
+"allocate_hardware": "Affecter du matériel",
+
+"sn": "N° Série",
+"cost": "Coût",
+"edit_asset": "Modifier l'équipement",
+"delete_asset": "Supprimer l'équipement",
+
+"delete_asset_confirm": "Supprimer cet équipement ?",
+
+"quick_appoint_manager": "Nomination rapide d'un responsable",
+"quick_add_office_desk": "Ajout rapide d'un bureau",
+"quick_catalog_hardware": "Enregistrement rapide d'un équipement",
+
+"appoint_responsible_supervisor": "Nommer un responsable pour",
+"structural_element_under": "Élément structurel sous",
+"individual_it_device_for_desk": "Équipement informatique individuel pour le bureau",
+
+"corporate_head_name": "Nom du responsable",
+"official_corporate_email": "Adresse e-mail professionnelle",
+"official_title_role": "Titre / Fonction officielle",
+
+"office_auto_assigned": "Le numéro de bureau sera attribué automatiquement",
+
+"responsible_corporate_entity": "Entité responsable",
+
+"appoint_manager": "Nommer le responsable",
+
+"person_desk_name": "Nom de la personne / du bureau",
+
+"role_title": "Fonction / Titre",
+"optional": "optionnel",
+
+"structure_type": "Type de structure",
+
+"individual_person": "Personne",
+"office_room": "Bureau",
+"rack_cabinet": "Baie informatique",
+"other_space": "Autre espace",
+
+"element_card_under_manager": "Cette carte d'élément sera directement rattachée au responsable",
+
+"create_hardware_desk_card": "Créer une carte de poste matériel",
+
+"asset_model_name": "Nom du modèle d'équipement",
+
+"asset_category": "Catégorie d'équipement",
+"lifecycle_status": "Statut du cycle de vie",
+
+"laptop_notebook": "Ordinateur portable",
+"desktop_workspace": "Poste de travail",
+"server_station": "Serveur",
+"printer_plotter": "Imprimante / Traceur",
+"switch_router": "Commutateur / Routeur",
+"screen_display": "Écran",
+"ups": "Onduleur",
+"desk_phone": "Téléphone fixe",
+"flash_disk": "Clé USB",
+"other_equipment": "Autre équipement",
+
+"active_deployed": "En service",
+"under_repair": "En réparation",
+"in_reserve_stock": "En stock",
+
+"serial_number_optional": "Numéro de série (optionnel)",
+"price_valuation": "Valeur estimée (DA)",
+
+"acquisition_date": "Date d'acquisition / mise en service",
+
+"device_integration_remarks": "Remarques sur l'intégration de l'équipement",
+
+"auto_codification": "Codification automatique",
+"system_auto_compute": "Le système calculera automatiquement la référence correcte.",
+
+"catalog_asset_generate_qr": "Enregistrer l'équipement et générer le QR Code",
+
+"edit_asset_title": "Modifier l'équipement",
+
+"category": "Catégorie",
+
+"codification_ref": "Référence de codification",
+
+"configuration_specs": "Configuration / Spécifications",
+"decharge": "Décharge",
+
+"cancel": "Annuler",
+"save_changes": "Enregistrer les modifications",
+
+"qr_code": "QR Code",
+
+"active_dept_overview": "Vue complète du département",
+
+"team_desk": "Poste de travail",
+
+"hardware_asset_registered": "Équipement enregistré avec le code",
+"asset_removed": "Équipement supprimé",
+
+"asset_updated_successfully": "Équipement mis à jour avec succès",
+
+"officer_successfully_appointed": "Responsable nommé avec succès au département",
+
+"team_element_created_under": "Bureau créé sous la responsabilité de", 
+
+  "head": "Chef",
+  "full_dept_overview": "Vue complète du département",
+
+  "assets_count": "équipements",
+  "asset_count": "équipement",
+
+"corporate_head_name_placeholder": "ex. Helena Rostova",
+
+"official_corporate_email_placeholder": "ex. h.rostova@lx-corp.com",
+
+"official_title_role_placeholder": "ex. Directeur Réseau",
+
+"role_title_placeholder": "ex. Méthodiste, Technicien de laboratoire",
+
+"asset_model_name_placeholder": "ex. Imprimante HP LaserJet, MacBook Pro 16",
+
+
+"serial_number_placeholder": "HP-993-A3",
+
+"price_valuation_placeholder": "ex. 1499",
+
+
+
+
+"device_integration_remarks_placeholder": "ex. Déployé avec les fichiers de configuration du réseau d'entreprise...",
+
+
+"auto_codification_desc": "Le système calculera automatiquement le bon indice de série.",
+
+
+"no_hardware_allocated_desc": "Aucun serveur, commutateur, imprimante, écran ou ordinateur portable n'est répertorié ici."
+
+}

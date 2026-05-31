@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Department, Manager, SubNode, Material } from '../types';
 import { 
   MapPin, Layers, Server, Laptop, Plus, HelpCircle, UserCheck, 
@@ -43,6 +44,7 @@ export default function PortalView({
   onUpdateSubNode,
   departments
 }: PortalViewProps) {
+  const { t } = useTranslation();
   const deptManagers = useMemo(() => {
     return managers.filter(m => m.departmentId === selectedDept.id);
   }, [managers, selectedDept]);
@@ -66,10 +68,10 @@ export default function PortalView({
     
     const managerAsSubNode: SubNode = {
       id: `node-${activeManager.id.replace('mng-', '')}`,
-      name: `Global Assets`,
+      name: t('Global_Assets'),
       role: `All Department Assets — ${activeManager.company} Group`,
       type: 'Person',
-      officeNum: activeManager.officeNum,
+      officeNum: 'Departement Desks',
       managerId: activeManager.id
     };
 
@@ -379,8 +381,8 @@ export default function PortalView({
                     isSelected ? 'border-[#FF1E1E]/20 text-[#FF1E1E]' : 'border-[#F5F5F7] text-[#86868B]'
                   }`}>
                     <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span>office number: {manager.officeNum}</span>
+
+                      
                     </div>
                     <span className="text-[10px] font-bold opacity-80">{worksCount || 0} desks</span>
                   </div>
@@ -460,7 +462,7 @@ export default function PortalView({
                             {node.name}
                             {isMngNode && (
                               <span className="ml-1.5 text-[8px] bg-[#FF1E1E]/10 text-[#FF1E1E] font-bold px-1.5 py-0.5 rounded-full border border-[#FF1E1E]/20 uppercase tracking-widest">
-                                Head
+                                {t('head')}
                               </span>
                             )}
                           </span>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Department } from '../types';
+import { useTranslation } from 'react-i18next';
 import * as LucideIcons from 'lucide-react';
 import { Network, Coins, Users, Cpu, Truck, Briefcase, Camera, Heart, Settings, FileSpreadsheet, ShieldAlert, Globe2 } from 'lucide-react';
 
@@ -18,6 +19,7 @@ export default function Sidebar({
   selectedUtility,
   onSelectUtility
 }: SidebarProps) {
+  const { t } = useTranslation();
   
   // Resolve Lucide Icon component dynamically based on string
   const renderIcon = (iconName: string, className: string) => {
@@ -57,7 +59,7 @@ export default function Sidebar({
       {/* CORE UTILITIES / WORKSPACE SECTOR */}
       <div className="p-4 space-y-1 select-none">
         <span className="px-3 text-[11px] font-semibold text-[#86868B] uppercase tracking-wider block mb-2">
-          Utilities
+          {t('utilities')}
         </span>
 
         {/* 1. Barcode Scanner tab */}
@@ -70,7 +72,7 @@ export default function Sidebar({
           }`}
         >
           <Camera className={`w-4 h-4 shrink-0 ${selectedUtility === 'scanner' ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
-          <span>QR Scanner & Audit</span>
+          <span>{t('qr_scanner')}</span>
         </button>
 
         {/* 2. Management & User tools */}
@@ -83,7 +85,7 @@ export default function Sidebar({
           }`}
         >
           <Settings className={`w-4 h-4 shrink-0 ${selectedUtility === 'management' ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
-          <span>User & Infrastructure</span>
+          <span>{t('user_infrastructure')}</span>
         </button>
 
         {/* 3. Reports Tab */}
@@ -96,7 +98,7 @@ export default function Sidebar({
           }`}
         >
           <FileSpreadsheet className={`w-4 h-4 shrink-0 ${selectedUtility === 'reports' ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
-          <span>Inventory Reports</span>
+          <span>{t('inventory_reports')}</span>
         </button>
       </div>
 
@@ -104,10 +106,10 @@ export default function Sidebar({
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
         <div className="flex items-center justify-between px-3 mb-2">
           <span className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wider block">
-            Departments
+            {t('departments')}
           </span>
           <span className="text-[9px] bg-[#F5F5F7] text-[#86868B] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
-            Active
+            {t('active')}
           </span>
         </div>
 
@@ -142,7 +144,7 @@ export default function Sidebar({
         {departments.length === 0 && (
           <div className="p-3 text-center border border-dashed border-[#D2D2D7]/60 rounded-xl mt-2 bg-[#F5F5F7]/30">
             <p className="text-[11px] text-[#86868B] leading-relaxed">
-              No custom departments in PostgreSQL. Open <strong className="text-red-500 font-bold">User & Infrastructure</strong> to register your first record!
+              {t('no_custom_departments')}
             </p>
           </div>
         )}
@@ -152,7 +154,7 @@ export default function Sidebar({
       <div className="p-4 border-t border-[#F5F5F7] bg-[#F5F5F7]/40 text-[10px] space-y-1 text-[#86868B] select-none">
         <div className="flex items-center gap-1.5">
           <Globe2 className="w-3.5 h-3.5 text-[#86868B]" />
-          <span className="font-semibold text-[#424245]">Enterprise Asset Sync</span>
+          <span className="font-semibold text-[#424245]">{t('enterprise_asset_sync')}</span>
         </div>
         <p className="leading-relaxed">TECHNOCERAM, LUXETILE, PORCELENDA Group Services.</p>
       </div>

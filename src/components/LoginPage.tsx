@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface LoginPageProps {
   onLoginSuccess: (email: string) => void;
@@ -7,6 +8,7 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ onLoginSuccess, defaultEmail }: LoginPageProps) {
+  const { t, i18n } = useTranslation();
   const [email, setEmail] = useState(defaultEmail || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -52,6 +54,23 @@ export default function LoginPage({ onLoginSuccess, defaultEmail }: LoginPagePro
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden font-sans">
+      {/* Floating Language Switcher */}
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-1 bg-[#121214]/80 border border-slate-800 rounded-full p-1 backdrop-blur-md">
+        {(['en', 'fr'] as const).map((lang) => (
+          <button
+            key={lang}
+            onClick={() => i18n.changeLanguage(lang)}
+            className={`px-3 py-1 text-xs font-bold rounded-full transition-all uppercase cursor-pointer ${
+              i18n.language === lang
+                ? 'bg-red-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            {lang}
+          </button>
+        ))}
+      </div>
+
       {/* Ambient glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-red-600/5 blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-red-600/10 blur-3xl pointer-events-none" />
@@ -80,7 +99,7 @@ export default function LoginPage({ onLoginSuccess, defaultEmail }: LoginPagePro
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-linear-to-r from-transparent via-[#FF1E1E] to-transparent" />
 
           <div>
-            <h2 className="text-base font-semibold text-white">Authorized Sign-In</h2>
+            <h2 className="text-base font-semibold text-white">{t('authorized_signin')}</h2>
             <p className="text-xs text-[#A1A1AA] mt-1">
               Access is restricted. Identify yourself to decrypt records.
             </p>

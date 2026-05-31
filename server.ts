@@ -2,6 +2,9 @@ import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
 import pg from 'pg';
+import multer from 'multer';
+import crypto from 'crypto';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import {
   INITIAL_DEPARTMENTS,
@@ -14,7 +17,8 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const { Pool } = pg;
 
@@ -88,7 +92,8 @@ async function checkAndInitializeDatabase() {
         type       VARCHAR(50)  NOT NULL,
         office_num VARCHAR(50)  NOT NULL,
         manager_id VARCHAR(50)  REFERENCES managers(id) ON DELETE SET NULL,
-        role       VARCHAR(150)
+        role       VARCHAR(150),
+        documents  JSONB        DEFAULT '[]'
       );
 
       CREATE TABLE IF NOT EXISTS materials (
@@ -175,6 +180,21 @@ app.use(async (req, res, next) => {
 });
 
 // ==========================================
+// FILE UPLOAD SETUP
+// ==========================================
+
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+const storage = multer.diskStorage({
+  destination: uploadsDir,
+  filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}-${file.originalname}`)
+});
+const upload = multer({ storage });
+
+app.use('/uploads', express.static(uploadsDir));
+
+// ==========================================
 // API ENDPOINTS
 // ==========================================
 
@@ -249,7 +269,6 @@ app.get('/api/departments', async (req, res) => {
   }
 });
 
-// FIX: single POST /api/departments for both create and update
 app.post('/api/departments', async (req, res) => {
   const { id, name, deptNum, icon, shortCode } = req.body;
   if (!id || !name || !deptNum || !icon || !shortCode) {
@@ -319,7 +338,6 @@ app.post('/api/managers', async (req, res) => {
   }
   try {
     if (isDbConnected) {
-      // Verify the referenced department exists before inserting
       if (departmentId) {
         const deptCheck = await pool.query('SELECT id FROM departments WHERE id = $1', [departmentId]);
         if (deptCheck.rows.length === 0) {
@@ -366,7 +384,7 @@ app.get('/api/subnodes', async (req, res) => {
   try {
     if (isDbConnected) {
       const { rows } = await pool.query(`
-        SELECT id, name, type, role,
+        SELECT id, name, type, role, documents,
                office_num AS "officeNum",
                manager_id AS "managerId"
         FROM sub_nodes ORDER BY name ASC
@@ -387,7 +405,6 @@ app.post('/api/subnodes', async (req, res) => {
   }
   try {
     if (isDbConnected) {
-      // Verify the referenced manager exists before inserting
       if (managerId) {
         const mgrCheck = await pool.query('SELECT id FROM managers WHERE id = $1', [managerId]);
         if (mgrCheck.rows.length === 0) {
@@ -400,10 +417,10 @@ app.post('/api/subnodes', async (req, res) => {
          ON CONFLICT (id) DO UPDATE SET name=$2, type=$3, office_num=$4, manager_id=$5, role=$6`,
         [id, name, type, officeNum, managerId || null, role || null]
       );
-      res.json({ id, name, type, officeNum, managerId, role });
+      res.json({ id, name, type, officeNum, managerId, role, documents: [] });
     } else {
       const idx = memoryStore.subNodes.findIndex(s => s.id === id);
-      const payload = { id, name, type, officeNum, managerId, role };
+      const payload = { id, name, type, officeNum, managerId, role, documents: [] };
       if (idx > -1) memoryStore.subNodes[idx] = payload;
       else memoryStore.subNodes.push(payload);
       res.json(payload);
@@ -424,6 +441,47 @@ app.delete('/api/subnodes/:id', async (req, res) => {
       memoryStore.materials = memoryStore.materials.filter(m => m.assignedNodeId !== id);
     }
     res.json({ success: true, id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- DOCUMENT UPLOAD ---
+app.post('/api/subnodes/:id/documents', upload.array('files'), async (req, res) => {
+  const docs = (req.files as Express.Multer.File[]).map(f => ({
+    id: crypto.randomUUID(),
+    name: f.originalname,
+    url: `/uploads/${f.filename}`,
+    type: f.mimetype,
+    uploadedAt: new Date().toISOString()
+  }));
+  try {
+    if (isDbConnected) {
+      await pool.query(
+        `UPDATE sub_nodes SET documents = documents || $1::jsonb WHERE id = $2`,
+        [JSON.stringify(docs), req.params.id]
+      );
+    } else {
+      const node = memoryStore.subNodes.find(s => s.id === req.params.id) as any;
+      if (node) node.documents = [...(node.documents || []), ...docs];
+    }
+    res.json(docs);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/subnodes/:id/documents/:docId', async (req, res) => {
+  try {
+    if (isDbConnected) {
+      const result = await pool.query(`SELECT documents FROM sub_nodes WHERE id = $1`, [req.params.id]);
+      const filtered = (result.rows[0]?.documents || []).filter((d: any) => d.id !== req.params.docId);
+      await pool.query(`UPDATE sub_nodes SET documents = $1 WHERE id = $2`, [JSON.stringify(filtered), req.params.id]);
+    } else {
+      const node = memoryStore.subNodes.find(s => s.id === req.params.id) as any;
+      if (node) node.documents = (node.documents || []).filter((d: any) => d.id !== req.params.docId);
+    }
+    res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -452,7 +510,6 @@ app.get('/api/materials', async (req, res) => {
   }
 });
 
-// FIX: single POST /api/materials (duplicate removed)
 app.post('/api/materials', async (req, res) => {
   const {
     id, name, type, company, deptNum, officeNum, materialNum,
@@ -465,7 +522,6 @@ app.post('/api/materials', async (req, res) => {
 
   try {
     if (isDbConnected) {
-      // Verify the referenced sub_node exists before inserting
       if (assignedNodeId) {
         const nodeCheck = await pool.query('SELECT id FROM sub_nodes WHERE id = $1', [assignedNodeId]);
         if (nodeCheck.rows.length === 0) {

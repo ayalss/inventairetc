@@ -249,6 +249,7 @@ var INITIAL_SUB_NODES = [
 ];
 var INITIAL_MATERIALS = [
   // materials under Alexander Wright (node-alex, IT, TC, 101)
+  // Server#1, Switch#1, UPS#1 — each type starts at 1
   {
     id: "mat-1",
     name: "Dell PowerEdge R750 Enterprise Server",
@@ -256,8 +257,8 @@ var INITIAL_MATERIALS = [
     company: "TC",
     deptNum: "10",
     officeNum: "101",
-    materialNum: "01",
-    codification: "T-10-101-01",
+    materialNum: "1",
+    codification: "T-10-101-SRV1",
     status: "Active",
     serialNumber: "SN-7729-XEON",
     purchaseDate: "2025-01-15",
@@ -272,8 +273,8 @@ var INITIAL_MATERIALS = [
     company: "TC",
     deptNum: "10",
     officeNum: "101",
-    materialNum: "02",
-    codification: "T-10-101-02",
+    materialNum: "1",
+    codification: "T-10-101-SW1",
     status: "Active",
     serialNumber: "CISC-CAT-9300-X39",
     purchaseDate: "2024-11-20",
@@ -288,8 +289,8 @@ var INITIAL_MATERIALS = [
     company: "TC",
     deptNum: "10",
     officeNum: "101",
-    materialNum: "03",
-    codification: "T-10-101-03",
+    materialNum: "1",
+    codification: "T-10-101-UPS1",
     status: "Active",
     serialNumber: "APC-SRT5K-9902",
     purchaseDate: "2025-02-10",
@@ -298,6 +299,7 @@ var INITIAL_MATERIALS = [
     notes: "Battery runtime approx 45 mins under full rack load."
   },
   // materials under Ned Leeds (node-ned, IT, TC, 101-B)
+  // Desktop#1, Screen#1, Printer#1 — each type starts at 1
   {
     id: "mat-4",
     name: "HP ProDesk Mini G9 PC Workstation",
@@ -305,8 +307,8 @@ var INITIAL_MATERIALS = [
     company: "TC",
     deptNum: "10",
     officeNum: "101-B",
-    materialNum: "01",
-    codification: "T-10-101-B-01",
+    materialNum: "1",
+    codification: "T-10-101-B-PC1",
     status: "Active",
     serialNumber: "HP-PD-G9-0199",
     purchaseDate: "2025-03-01",
@@ -321,8 +323,8 @@ var INITIAL_MATERIALS = [
     company: "TC",
     deptNum: "10",
     officeNum: "101-B",
-    materialNum: "02",
-    codification: "T-10-101-B-02",
+    materialNum: "1",
+    codification: "T-10-101-B-ECR1",
     status: "Active",
     serialNumber: "DELL-US32-DEVC",
     purchaseDate: "2025-03-02",
@@ -337,8 +339,8 @@ var INITIAL_MATERIALS = [
     company: "TC",
     deptNum: "10",
     officeNum: "101-B",
-    materialNum: "03",
-    codification: "T-10-101-B-03",
+    materialNum: "1",
+    codification: "T-10-101-B-IMP1",
     status: "Active",
     serialNumber: "EPS-WFE-499X",
     purchaseDate: "2024-05-18",
@@ -347,6 +349,7 @@ var INITIAL_MATERIALS = [
     notes: "Shared workgroup multifunction printer"
   },
   // materials under Peter Parker (node-peter, IT, TC, 101-C)
+  // Laptop#1
   {
     id: "mat-7",
     name: 'Apple MacBook Pro M3 Max 16"',
@@ -354,8 +357,8 @@ var INITIAL_MATERIALS = [
     company: "TC",
     deptNum: "10",
     officeNum: "101-C",
-    materialNum: "01",
-    codification: "T-10-101-C-01",
+    materialNum: "1",
+    codification: "T-10-101-C-LAP1",
     status: "Active",
     serialNumber: "CO2G38DJ16M3",
     purchaseDate: "2025-04-12",
@@ -364,6 +367,7 @@ var INITIAL_MATERIALS = [
     notes: "High power mobile development unit."
   },
   // materials under Helena Rostova (node-helena, IT, LX, 201)
+  // Switch#1, UPS#1
   {
     id: "mat-8",
     name: "Ubiquiti UniFi Dream Machine Pro Gateway",
@@ -371,8 +375,8 @@ var INITIAL_MATERIALS = [
     company: "LX",
     deptNum: "10",
     officeNum: "201",
-    materialNum: "01",
-    codification: "L-10-201-01",
+    materialNum: "1",
+    codification: "L-10-201-SW1",
     status: "Active",
     serialNumber: "UBQ-UDM-PRO-LC9",
     purchaseDate: "2024-08-30",
@@ -387,8 +391,8 @@ var INITIAL_MATERIALS = [
     company: "LX",
     deptNum: "10",
     officeNum: "201",
-    materialNum: "02",
-    codification: "L-10-201-02",
+    materialNum: "1",
+    codification: "L-10-201-UPS1",
     status: "Active",
     serialNumber: "EATN-9PX-82910",
     purchaseDate: "2024-09-02",
@@ -397,6 +401,7 @@ var INITIAL_MATERIALS = [
     notes: "Provides filtered active sinewave power to critical switches."
   },
   // materials under Sophie Laurent (node-sophie, Finance, TC, 105)
+  // Printer#1
   {
     id: "mat-10",
     name: "HP LaserJet Managed MFP E60155 DN",
@@ -404,8 +409,8 @@ var INITIAL_MATERIALS = [
     company: "TC",
     deptNum: "20",
     officeNum: "105",
-    materialNum: "01",
-    codification: "T-20-105-01",
+    materialNum: "1",
+    codification: "T-20-105-IMP1",
     status: "Active",
     serialNumber: "HP-LJMFP-E60-72",
     purchaseDate: "2024-02-14",
@@ -414,6 +419,7 @@ var INITIAL_MATERIALS = [
     notes: "Secure badge release print enabled for financial compliance."
   },
   // materials under Bruce Wayne (node-bruce, Finance, TC, 105-B)
+  // Desktop#1
   {
     id: "mat-11",
     name: "Lenovo ThinkCentre Neo 50t Tiny Tower",
@@ -421,8 +427,8 @@ var INITIAL_MATERIALS = [
     company: "TC",
     deptNum: "20",
     officeNum: "105-B",
-    materialNum: "01",
-    codification: "T-20-105-B-01",
+    materialNum: "1",
+    codification: "T-20-105-B-PC1",
     status: "Active",
     serialNumber: "LNV-TC-NEO50-482",
     purchaseDate: "2025-01-20",
@@ -431,6 +437,7 @@ var INITIAL_MATERIALS = [
     notes: "Dedicated ledger processing node."
   },
   // materials under Linus Torvalds (node-linus, R&D, LX, 211)
+  // Server#1
   {
     id: "mat-12",
     name: "Supermicro SuperServer 4029GP Dual Xeon",
@@ -438,8 +445,8 @@ var INITIAL_MATERIALS = [
     company: "LX",
     deptNum: "40",
     officeNum: "211",
-    materialNum: "01",
-    codification: "L-40-211-01",
+    materialNum: "1",
+    codification: "L-40-211-SRV1",
     status: "Active",
     serialNumber: "SMC-4029-GP-GPU8",
     purchaseDate: "2025-03-30",
@@ -448,6 +455,7 @@ var INITIAL_MATERIALS = [
     notes: "Host containing 4x NVIDIA H100 cards for AI simulation runtimes."
   },
   // materials under Richard Stallman (node-torvalds-crew, R&D, LX, 211-B)
+  // Switch#1
   {
     id: "mat-13",
     name: "Mellanox Quantum InfiniBand 40-Port Switch",
@@ -455,8 +463,8 @@ var INITIAL_MATERIALS = [
     company: "LX",
     deptNum: "40",
     officeNum: "211-B",
-    materialNum: "01",
-    codification: "L-40-211-B-01",
+    materialNum: "1",
+    codification: "L-40-211-B-SW1",
     status: "Active",
     serialNumber: "MLNX-QIB-40P-99",
     purchaseDate: "2025-04-02",
@@ -486,7 +494,6 @@ if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "") {
 }
 var pool = new Pool(dbConfig);
 var isDbConnected = false;
-var dbName = dbConfig.database;
 var activeConnectionError = "";
 var memoryStore = {
   departments: [...INITIAL_DEPARTMENTS],
@@ -499,134 +506,121 @@ var memoryStore = {
 };
 async function checkAndInitializeDatabase() {
   try {
-    console.log(`[POSTGRES] Attempting connection to: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}...`);
+    console.log(`[POSTGRES] Connecting to ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}...`);
     const client = await pool.connect();
     isDbConnected = true;
     activeConnectionError = "";
-    console.log(`[POSTGRES] Successfully connected to "${dbConfig.database}" database!`);
+    console.log(`[POSTGRES] Connected to "${dbConfig.database}" successfully.`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
-        email VARCHAR(150) PRIMARY KEY,
-        password VARCHAR(100) NOT NULL,
-        role VARCHAR(50) NOT NULL DEFAULT 'user',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        email         VARCHAR(150) PRIMARY KEY,
+        password      VARCHAR(100) NOT NULL,
+        role          VARCHAR(50)  NOT NULL DEFAULT 'user',
+        created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS departments (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        dept_num VARCHAR(50) NOT NULL,
-        icon VARCHAR(50) NOT NULL,
-        short_code VARCHAR(50) NOT NULL
+        id         VARCHAR(50) PRIMARY KEY,
+        name       VARCHAR(100) NOT NULL,
+        dept_num   VARCHAR(50)  NOT NULL,
+        icon       VARCHAR(50)  NOT NULL,
+        short_code VARCHAR(50)  NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS managers (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(100) NOT NULL,
-        role VARCHAR(150) NOT NULL,
-        avatar_color VARCHAR(50) NOT NULL,
-        office_num VARCHAR(50) NOT NULL,
-        company VARCHAR(5) NOT NULL,
-        department_id VARCHAR(50) REFERENCES departments(id) ON DELETE SET NULL
+        id            VARCHAR(50)  PRIMARY KEY,
+        name          VARCHAR(100) NOT NULL,
+        email         VARCHAR(100) NOT NULL,
+        role          VARCHAR(150) NOT NULL,
+        avatar_color  VARCHAR(50)  NOT NULL,
+        office_num    VARCHAR(50)  NOT NULL,
+        company       VARCHAR(5)   NOT NULL,
+        department_id VARCHAR(50)  REFERENCES departments(id) ON DELETE SET NULL
       );
 
       CREATE TABLE IF NOT EXISTS sub_nodes (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        type VARCHAR(50) NOT NULL,
-        office_num VARCHAR(50) NOT NULL,
-        manager_id VARCHAR(50) REFERENCES managers(id) ON DELETE SET NULL,
-        role VARCHAR(150)
+        id         VARCHAR(50)  PRIMARY KEY,
+        name       VARCHAR(100) NOT NULL,
+        type       VARCHAR(50)  NOT NULL,
+        office_num VARCHAR(50)  NOT NULL,
+        manager_id VARCHAR(50)  REFERENCES managers(id) ON DELETE SET NULL,
+        role       VARCHAR(150)
       );
 
       CREATE TABLE IF NOT EXISTS materials (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        type VARCHAR(50) NOT NULL,
-        company VARCHAR(5) NOT NULL,
-        dept_num VARCHAR(50) NOT NULL,
-        office_num VARCHAR(50) NOT NULL,
-        material_num VARCHAR(50) NOT NULL,
-        codification VARCHAR(100) NOT NULL,
-        status VARCHAR(50) NOT NULL,
-        serial_number VARCHAR(100) NOT NULL,
-        purchase_date VARCHAR(50),
-        cost DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-        notes TEXT,
-        assigned_node_id VARCHAR(50) REFERENCES sub_nodes(id) ON DELETE CASCADE
+        id               VARCHAR(50)    PRIMARY KEY,
+        name             VARCHAR(100)   NOT NULL,
+        type             VARCHAR(50)    NOT NULL,
+        company          VARCHAR(5)     NOT NULL,
+        dept_num         VARCHAR(50)    NOT NULL,
+        office_num       VARCHAR(50)    NOT NULL,
+        material_num     VARCHAR(50)    NOT NULL,
+        codification     VARCHAR(100)   NOT NULL,
+        status           VARCHAR(50)    NOT NULL,
+        serial_number    VARCHAR(100)   NOT NULL,
+        purchase_date    VARCHAR(50),
+        cost             DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+        notes            TEXT,
+        assigned_node_id VARCHAR(50)    REFERENCES sub_nodes(id) ON DELETE CASCADE
       );
     `);
-    const userCountResult = await client.query("SELECT COUNT(*) FROM users");
-    if (parseInt(userCountResult.rows[0].count) === 0) {
-      console.log("[POSTGRES] Seeding initial secure administrator user: ayalounis679@gmail.com");
+    const userCount = await client.query("SELECT COUNT(*) FROM users");
+    if (parseInt(userCount.rows[0].count) === 0) {
       await client.query(
         "INSERT INTO users (email, password, role) VALUES ('ayalounis679@gmail.com', 'luxury', 'admin')"
       );
+      console.log("[POSTGRES] Admin user seeded.");
     }
-    const deptCountResult = await client.query("SELECT COUNT(*) FROM departments");
-    if (parseInt(deptCountResult.rows[0].count) === 0) {
-      console.log("[POSTGRES] Seeding initial departments data...");
+    const deptCount = await client.query("SELECT COUNT(*) FROM departments");
+    if (parseInt(deptCount.rows[0].count) === 0) {
+      console.log("[POSTGRES] Seeding initial data...");
       for (const d of INITIAL_DEPARTMENTS) {
         await client.query(
-          "INSERT INTO departments (id, name, dept_num, icon, short_code) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
+          "INSERT INTO departments (id, name, dept_num, icon, short_code) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING",
           [d.id, d.name, d.deptNum, d.icon, d.shortCode]
         );
       }
-      console.log("[POSTGRES] Seeding initial managers data...");
       for (const m of INITIAL_MANAGERS) {
         await client.query(
-          "INSERT INTO managers (id, name, email, role, avatar_color, office_num, company, department_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING",
+          "INSERT INTO managers (id, name, email, role, avatar_color, office_num, company, department_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING",
           [m.id, m.name, m.email, m.role, m.avatarColor, m.officeNum, m.company, m.departmentId || null]
         );
       }
-      console.log("[POSTGRES] Seeding initial sub_nodes data...");
       for (const s of INITIAL_SUB_NODES) {
         await client.query(
-          "INSERT INTO sub_nodes (id, name, type, office_num, manager_id, role) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING",
+          "INSERT INTO sub_nodes (id, name, type, office_num, manager_id, role) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING",
           [s.id, s.name, s.type, s.officeNum, s.managerId || null, s.role || null]
         );
       }
-      console.log("[POSTGRES] Seeding initial materials data...");
-      for (const m of INITIAL_MATERIALS) {
+      for (const mat of INITIAL_MATERIALS) {
         await client.query(
-          `INSERT INTO materials (
-            id, name, type, company, dept_num, office_num, material_num, 
-            codification, status, serial_number, purchase_date, cost, notes, assigned_node_id
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT (id) DO NOTHING`,
+          `INSERT INTO materials (id,name,type,company,dept_num,office_num,material_num,codification,status,serial_number,purchase_date,cost,notes,assigned_node_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT (id) DO NOTHING`,
           [
-            m.id,
-            m.name,
-            m.type,
-            m.company,
-            m.deptNum,
-            m.officeNum,
-            m.materialNum,
-            m.codification,
-            m.status,
-            m.serialNumber,
-            m.purchaseDate || null,
-            m.cost,
-            m.notes || null,
-            m.assignedNodeId
+            mat.id,
+            mat.name,
+            mat.type,
+            mat.company,
+            mat.deptNum,
+            mat.officeNum,
+            mat.materialNum,
+            mat.codification,
+            mat.status,
+            mat.serialNumber,
+            mat.purchaseDate || null,
+            mat.cost,
+            mat.notes || null,
+            mat.assignedNodeId || null
           ]
         );
       }
-      console.log("[POSTGRES] Seeding completed.");
+      console.log("[POSTGRES] Initial seeding complete.");
     }
-    console.log("[POSTGRES] DB tables verified/created successfully.");
     client.release();
   } catch (err) {
     isDbConnected = false;
-    activeConnectionError = err.message || "Unknown database connection failure";
-    console.log("\n===============================================================");
-    console.log("\u{1F4A1} [DATABASE PROTOCOL] running in Standalone Sandbox Mode");
-    console.log(`\u{1F4E1} Status: Local in-memory cache initialized & verified`);
-    console.log(`\u{1F50C} How to connect your local PC PostgreSQL database ("${dbConfig.database}"):`);
-    console.log(`   1. Set the DATABASE_URL environment variable in your environment settings:`);
-    console.log(`      DATABASE_URL=postgresql://<user>:<password>@<your-pc-public-ip>:5432/inventory`);
-    console.log("   2. Or run the app on your computer using: npm run dev");
-    console.log("===============================================================\n");
+    activeConnectionError = err.message || "Unknown error";
+    console.log("[DB] PostgreSQL unavailable \u2014 running on in-memory fallback.");
   }
 }
 app.use(async (req, res, next) => {
@@ -651,67 +645,21 @@ app.get("/api/db-status", (req, res) => {
 });
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password signature are required." });
-  }
+  if (!email || !password) return res.status(400).json({ error: "Email and password are required." });
+  const cleanEmail = String(email).trim().toLowerCase();
+  const cleanPassword = String(password).trim();
   try {
-    const normEmail = email.toLowerCase().trim();
-    const cleanPassword = password.trim();
     if (isDbConnected) {
-      const { rows } = await pool.query("SELECT * FROM users WHERE LOWER(email) = $1", [normEmail]);
-      if (rows.length === 0) {
-        return res.status(401).json({ error: "Access Denied: Specified signature does not match secure vault." });
-      }
-      const user = rows[0];
-      if (user.password === cleanPassword || user.password.toLowerCase() === cleanPassword.toLowerCase()) {
-        return res.json({ success: true, email: user.email, role: user.role });
-      } else {
-        return res.status(401).json({ error: "Access Denied: Invalid security signature credentials." });
-      }
+      const { rows } = await pool.query("SELECT * FROM users WHERE LOWER(email) = $1", [cleanEmail]);
+      if (rows.length === 0) return res.status(401).json({ error: "Access Denied: User not found." });
+      const storedPassword = rows[0].password ?? rows[0].password_hash ?? "";
+      if (storedPassword !== cleanPassword) return res.status(401).json({ error: "Access Denied: Invalid password." });
+      return res.json({ success: true, email: rows[0].email });
     } else {
-      const user = memoryStore.users.find((u) => u.email.toLowerCase() === normEmail);
-      if (!user) {
-        return res.status(401).json({ error: "Access Denied: Specified signature does not match secure vault." });
-      }
-      if (user.password === cleanPassword || user.password.toLowerCase() === cleanPassword.toLowerCase()) {
-        return res.json({ success: true, email: user.email, role: user.role });
-      } else {
-        return res.status(401).json({ error: "Access Denied: Invalid security signature credentials." });
-      }
-    }
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-app.post("/api/auth/register", async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and security signature must be set." });
-  }
-  try {
-    const normEmail = email.toLowerCase().trim();
-    const cleanPassword = password.trim();
-    if (isDbConnected) {
-      const duplicate = await pool.query("SELECT * FROM users WHERE LOWER(email) = $1", [normEmail]);
-      if (duplicate.rows.length > 0) {
-        return res.status(400).json({ error: "Account already registered in secure database." });
-      }
-      await pool.query(
-        "INSERT INTO users (email, password, role) VALUES ($1, $2, $3)",
-        [normEmail, cleanPassword, "user"]
-      );
-      res.json({ success: true, message: "First database access criteria met. User created successfully!" });
-    } else {
-      const exists = memoryStore.users.some((u) => u.email.toLowerCase() === normEmail);
-      if (exists) {
-        return res.status(400).json({ error: "Account already registered in secure database." });
-      }
-      memoryStore.users.push({
-        email: normEmail,
-        password: cleanPassword,
-        role: "user"
-      });
-      res.json({ success: true, message: "First database access criteria met. User created successfully! (Sandbox offline cache)" });
+      const user = memoryStore.users.find((u) => String(u.email).toLowerCase() === cleanEmail);
+      if (!user) return res.status(401).json({ error: "Access Denied: User not found." });
+      if (String(user.password) !== cleanPassword) return res.status(401).json({ error: "Access Denied: Invalid password." });
+      return res.json({ success: true, email: user.email });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -727,7 +675,7 @@ app.post("/api/clean-db", async (req, res) => {
       memoryStore.subNodes = [];
       memoryStore.materials = [];
     }
-    res.json({ status: "success", message: "All database and local sample data deleted successfully." });
+    res.json({ status: "success" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -735,7 +683,12 @@ app.post("/api/clean-db", async (req, res) => {
 app.get("/api/departments", async (req, res) => {
   try {
     if (isDbConnected) {
-      const { rows } = await pool.query("SELECT * FROM departments ORDER BY name ASC");
+      const { rows } = await pool.query(`
+        SELECT id, name, icon,
+               dept_num   AS "deptNum",
+               short_code AS "shortCode"
+        FROM departments ORDER BY name ASC
+      `);
       res.json(rows);
     } else {
       res.json(memoryStore.departments);
@@ -746,24 +699,27 @@ app.get("/api/departments", async (req, res) => {
 });
 app.post("/api/departments", async (req, res) => {
   const { id, name, deptNum, icon, shortCode } = req.body;
+  if (!id || !name || !deptNum || !icon || !shortCode) {
+    return res.status(400).json({ error: "Missing required department fields." });
+  }
   try {
     if (isDbConnected) {
       await pool.query(
-        "INSERT INTO departments (id, name, dept_num, icon, short_code) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE SET name = $2, dept_num = $3, icon = $4, short_code = $5",
+        `INSERT INTO departments (id, name, dept_num, icon, short_code)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (id) DO UPDATE SET name=$2, dept_num=$3, icon=$4, short_code=$5`,
         [id, name, deptNum, icon, shortCode]
       );
       res.json({ id, name, deptNum, icon, shortCode });
     } else {
       const idx = memoryStore.departments.findIndex((d) => d.id === id);
       const payload = { id, name, deptNum, icon, shortCode };
-      if (idx > -1) {
-        memoryStore.departments[idx] = payload;
-      } else {
-        memoryStore.departments.push(payload);
-      }
+      if (idx > -1) memoryStore.departments[idx] = payload;
+      else memoryStore.departments.push(payload);
       res.json(payload);
     }
   } catch (err) {
+    console.error("\u274C DEPARTMENT INSERT ERROR:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -774,7 +730,7 @@ app.delete("/api/departments/:id", async (req, res) => {
       await pool.query("DELETE FROM departments WHERE id = $1", [id]);
     } else {
       memoryStore.departments = memoryStore.departments.filter((d) => d.id !== id);
-      memoryStore.managers = memoryStore.managers.map((m) => m.departmentId === id ? { ...m, departmentId: "" } : m);
+      memoryStore.managers = memoryStore.managers.map((m) => m.departmentId === id ? { ...m, departmentId: null } : m);
     }
     res.json({ success: true, id });
   } catch (err) {
@@ -784,7 +740,13 @@ app.delete("/api/departments/:id", async (req, res) => {
 app.get("/api/managers", async (req, res) => {
   try {
     if (isDbConnected) {
-      const { rows } = await pool.query("SELECT * FROM managers ORDER BY name ASC");
+      const { rows } = await pool.query(`
+        SELECT id, name, email, role, company,
+               avatar_color  AS "avatarColor",
+               office_num    AS "officeNum",
+               department_id AS "departmentId"
+        FROM managers ORDER BY name ASC
+      `);
       res.json(rows);
     } else {
       res.json(memoryStore.managers);
@@ -795,26 +757,33 @@ app.get("/api/managers", async (req, res) => {
 });
 app.post("/api/managers", async (req, res) => {
   const { id, name, email, role, avatarColor, officeNum, company, departmentId } = req.body;
+  if (!id || !name || !email || !role || !avatarColor || !officeNum || !company) {
+    return res.status(400).json({ error: "Missing required manager fields." });
+  }
   try {
     if (isDbConnected) {
+      if (departmentId) {
+        const deptCheck = await pool.query("SELECT id FROM departments WHERE id = $1", [departmentId]);
+        if (deptCheck.rows.length === 0) {
+          return res.status(400).json({ error: `Department "${departmentId}" does not exist in the database.` });
+        }
+      }
       await pool.query(
-        `INSERT INTO managers (id, name, email, role, avatar_color, office_num, company, department_id) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-         ON CONFLICT (id) DO UPDATE SET name = $2, email = $3, role = $4, avatar_color = $5, office_num = $6, company = $7, department_id = $8`,
+        `INSERT INTO managers (id, name, email, role, avatar_color, office_num, company, department_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (id) DO UPDATE SET name=$2, email=$3, role=$4, avatar_color=$5, office_num=$6, company=$7, department_id=$8`,
         [id, name, email, role, avatarColor, officeNum, company, departmentId || null]
       );
       res.json({ id, name, email, role, avatarColor, officeNum, company, departmentId });
     } else {
       const idx = memoryStore.managers.findIndex((m) => m.id === id);
       const payload = { id, name, email, role, avatarColor, officeNum, company, departmentId };
-      if (idx > -1) {
-        memoryStore.managers[idx] = payload;
-      } else {
-        memoryStore.managers.push(payload);
-      }
+      if (idx > -1) memoryStore.managers[idx] = payload;
+      else memoryStore.managers.push(payload);
       res.json(payload);
     }
   } catch (err) {
+    console.error("\u274C MANAGER INSERT ERROR:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -825,7 +794,7 @@ app.delete("/api/managers/:id", async (req, res) => {
       await pool.query("DELETE FROM managers WHERE id = $1", [id]);
     } else {
       memoryStore.managers = memoryStore.managers.filter((m) => m.id !== id);
-      memoryStore.subNodes = memoryStore.subNodes.map((sn) => sn.managerId === id ? { ...sn, managerId: "" } : sn);
+      memoryStore.subNodes = memoryStore.subNodes.map((s) => s.managerId === id ? { ...s, managerId: null } : s);
     }
     res.json({ success: true, id });
   } catch (err) {
@@ -835,7 +804,12 @@ app.delete("/api/managers/:id", async (req, res) => {
 app.get("/api/subnodes", async (req, res) => {
   try {
     if (isDbConnected) {
-      const { rows } = await pool.query("SELECT * FROM sub_nodes ORDER BY name ASC");
+      const { rows } = await pool.query(`
+        SELECT id, name, type, role,
+               office_num AS "officeNum",
+               manager_id AS "managerId"
+        FROM sub_nodes ORDER BY name ASC
+      `);
       res.json(rows);
     } else {
       res.json(memoryStore.subNodes);
@@ -846,26 +820,33 @@ app.get("/api/subnodes", async (req, res) => {
 });
 app.post("/api/subnodes", async (req, res) => {
   const { id, name, type, officeNum, managerId, role } = req.body;
+  if (!id || !name || !type || !officeNum) {
+    return res.status(400).json({ error: "Missing required subnode fields." });
+  }
   try {
     if (isDbConnected) {
+      if (managerId) {
+        const mgrCheck = await pool.query("SELECT id FROM managers WHERE id = $1", [managerId]);
+        if (mgrCheck.rows.length === 0) {
+          return res.status(400).json({ error: `Manager "${managerId}" does not exist in the database.` });
+        }
+      }
       await pool.query(
-        `INSERT INTO sub_nodes (id, name, type, office_num, manager_id, role) 
-         VALUES ($1, $2, $3, $4, $5, $6) 
-         ON CONFLICT (id) DO UPDATE SET name = $2, type = $3, office_num = $4, manager_id = $5, role = $6`,
+        `INSERT INTO sub_nodes (id, name, type, office_num, manager_id, role)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         ON CONFLICT (id) DO UPDATE SET name=$2, type=$3, office_num=$4, manager_id=$5, role=$6`,
         [id, name, type, officeNum, managerId || null, role || null]
       );
       res.json({ id, name, type, officeNum, managerId, role });
     } else {
       const idx = memoryStore.subNodes.findIndex((s) => s.id === id);
       const payload = { id, name, type, officeNum, managerId, role };
-      if (idx > -1) {
-        memoryStore.subNodes[idx] = payload;
-      } else {
-        memoryStore.subNodes.push(payload);
-      }
+      if (idx > -1) memoryStore.subNodes[idx] = payload;
+      else memoryStore.subNodes.push(payload);
       res.json(payload);
     }
   } catch (err) {
+    console.error("\u274C SUBNODE INSERT ERROR:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -886,7 +867,16 @@ app.delete("/api/subnodes/:id", async (req, res) => {
 app.get("/api/materials", async (req, res) => {
   try {
     if (isDbConnected) {
-      const { rows } = await pool.query("SELECT * FROM materials ORDER BY name ASC");
+      const { rows } = await pool.query(`
+        SELECT id, name, type, company, status, codification, cost, notes,
+               dept_num         AS "deptNum",
+               office_num       AS "officeNum",
+               material_num     AS "materialNum",
+               serial_number    AS "serialNumber",
+               purchase_date    AS "purchaseDate",
+               assigned_node_id AS "assignedNodeId"
+        FROM materials ORDER BY name ASC
+      `);
       res.json(rows);
     } else {
       res.json(memoryStore.materials);
@@ -912,49 +902,49 @@ app.post("/api/materials", async (req, res) => {
     notes,
     assignedNodeId
   } = req.body;
+  if (!id || !name || !type || !company || !codification || !status) {
+    return res.status(400).json({ error: "Missing required material fields." });
+  }
   try {
     if (isDbConnected) {
-      await pool.query(
+      if (assignedNodeId) {
+        const nodeCheck = await pool.query("SELECT id FROM sub_nodes WHERE id = $1", [assignedNodeId]);
+        if (nodeCheck.rows.length === 0) {
+          return res.status(400).json({ error: `Sub-node "${assignedNodeId}" does not exist in the database.` });
+        }
+      }
+      const { rows } = await pool.query(
         `INSERT INTO materials (
-          id, name, type, company, dept_num, office_num, material_num, 
-          codification, status, serial_number, purchase_date, cost, notes, assigned_node_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-        ON CONFLICT (id) DO UPDATE SET 
-          name = $2, type = $3, company = $4, dept_num = $5, office_num = $6, material_num = $7,
-          codification = $8, status = $9, serial_number = $10, purchase_date = $11, cost = $12, notes = $13, assigned_node_id = $14`,
+           id, name, type, company, dept_num, office_num, material_num,
+           codification, status, serial_number, purchase_date, cost, notes, assigned_node_id
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         ON CONFLICT (id) DO UPDATE SET
+           name=$2, type=$3, company=$4, dept_num=$5, office_num=$6, material_num=$7,
+           codification=$8, status=$9, serial_number=$10, purchase_date=$11,
+           cost=$12, notes=$13, assigned_node_id=$14
+         RETURNING
+           id, name, type, company, status, codification, cost, notes,
+           dept_num AS "deptNum", office_num AS "officeNum", material_num AS "materialNum",
+           serial_number AS "serialNumber", purchase_date AS "purchaseDate",
+           assigned_node_id AS "assignedNodeId"`,
         [
           id,
           name,
           type,
           company,
-          deptNum,
-          officeNum,
-          materialNum,
+          deptNum || null,
+          officeNum || null,
+          materialNum || null,
           codification,
           status,
-          serialNumber,
+          serialNumber || null,
           purchaseDate || null,
-          cost || 0,
+          parseFloat(cost) || 0,
           notes || null,
-          assignedNodeId
+          assignedNodeId || null
         ]
       );
-      res.json({
-        id,
-        name,
-        type,
-        company,
-        deptNum,
-        officeNum,
-        materialNum,
-        codification,
-        status,
-        serialNumber,
-        purchaseDate,
-        cost,
-        notes,
-        assignedNodeId
-      });
+      res.json(rows[0]);
     } else {
       const idx = memoryStore.materials.findIndex((m) => m.id === id);
       const payload = {
@@ -973,14 +963,12 @@ app.post("/api/materials", async (req, res) => {
         notes,
         assignedNodeId
       };
-      if (idx > -1) {
-        memoryStore.materials[idx] = payload;
-      } else {
-        memoryStore.materials.push(payload);
-      }
+      if (idx > -1) memoryStore.materials[idx] = payload;
+      else memoryStore.materials.push(payload);
       res.json(payload);
     }
   } catch (err) {
+    console.error("\u274C MATERIAL INSERT ERROR:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1013,8 +1001,7 @@ async function runExpressAndVite() {
     });
   }
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[SERVER] Full-stack application container active.`);
-    console.log(`[SERVER] Ingress proxy router active at: http://localhost:${PORT}`);
+    console.log(`[SERVER] Running at http://localhost:${PORT}`);
   });
 }
 runExpressAndVite();

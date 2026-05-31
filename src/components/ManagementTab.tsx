@@ -1,18 +1,26 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Department, Manager, SubNode, Material } from '../types';
 import { generateMaterialCodification } from '../data';
 import { 
   Plus, FolderPlus, UserPlus, Layers, Laptop, Check, AlertCircle, Trash2, 
   Edit, Printer, X, FileText, Search, User, Briefcase, Network, Coins, 
   Users, Cpu, Truck, LayoutList, ClipboardCheck, CreditCard, ChevronDown,
-  Square, CheckSquare, AlertTriangle
+  Square, CheckSquare, AlertTriangle, Paperclip, FileUp, Eye, Download
 } from 'lucide-react';
 
-// ─── Extended types with optional CIN / role on SubNode ───────────────────────
-// Note: these fields are added optionally to the existing SubNode & Manager
-// shapes — existing records without them will simply show undefined.
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Document type for SubNode attachments ────────────────────────────────────
+export interface SubNodeDocument {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  uploadedAt: string;
+}
 
+type SubNodeWithDocs = SubNode & { documents?: SubNodeDocument[] };
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 interface ManagementTabProps {
   departments: Department[];
   managers: Manager[];
@@ -38,6 +46,8 @@ export default function ManagementTab({
   onDeleteMaterial, onUpdateDepartment, onDeleteDepartment,
   onUpdateManager, onDeleteManager, onUpdateSubNode, onDeleteSubNode, onUpdateMaterial
 }: ManagementTabProps) {
+  const { t } = useTranslation();
+
   const [activeForm, setActiveForm] = useState<'material' | 'subnode' | 'manager' | 'dept'>('material');
   const [showSuccessToast, setShowSuccessToast] = useState<string | null>(null);
 
@@ -48,8 +58,12 @@ export default function ManagementTab({
   // Edit modal
   const [editingItem, setEditingItem] = useState<{ type: 'material' | 'subnode' | 'manager' | 'dept'; id: string; data: any } | null>(null);
 
-  // ── DÉCHARGE: multi-select state ──────────────────────────────────────────
-  const [dechargeOpen, setDechargeOpen] = useState(false);
+  // Documents modal
+  const [docsModalNode, setDocsModalNode] = useState<SubNodeWithDocs | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const inlineFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Décharge multi-select
   const [dechargeSelectedIds, setDechargeSelectedIds] = useState<string[]>([]);
   const [dechargePreviewMaterials, setDechargePreviewMaterials] = useState<Material[] | null>(null);
 
@@ -57,7 +71,7 @@ export default function ManagementTab({
   const [printDeptReport, setPrintDeptReport] = useState<Department | null>(null);
 
   // ─── Auto-number helpers ───────────────────────────────────────────────────
-  const getNextDeptNum     = () => String(departments.length + 1);
+  const getNextDeptNum          = () => String(departments.length + 1);
   const getNextManagerOfficeNum = () => String(managers.length + 1);
   const getNextNodeOfficeNum    = () => String(subNodes.length + 1);
 
@@ -79,7 +93,7 @@ export default function ManagementTab({
   const [nodeCin,       setNodeCin]       = useState('');
 
   const [matName,   setMatName]   = useState('');
-  const [matType,   setMatType]   = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' |'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' |'Other'>('Desktop');
+  const [matType,   setMatType]   = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Other'>('Desktop');
   const [matStatus, setMatStatus] = useState<'Active' | 'Under Repair' | 'In Storage' | 'Retired'>('Active');
   const [matSerial, setMatSerial] = useState('');
   const [matCost,   setMatCost]   = useState('');
@@ -131,7 +145,8 @@ export default function ManagementTab({
       id: `node-${Date.now()}`, name: nodeName, type: nodeType,
       officeNum: autoOffice, managerId: nodeManagerId,
       role: nodeRole.trim() || undefined,
-      cin: nodeCin.trim() || undefined
+      cin: nodeCin.trim() || undefined,
+      documents: []
     };
     onAddSubNode(newNode);
     triggerSuccess(`Desk card "${nodeName}" created — auto office #${autoOffice}`);
@@ -191,13 +206,12 @@ export default function ManagementTab({
   };
 
   // ─── Search filters ────────────────────────────────────────────────────────
-  const getFilteredMaterials  = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return materials; return materials.filter(m => m.name.toLowerCase().includes(q) || m.codification.toLowerCase().includes(q) || m.serialNumber.toLowerCase().includes(q) || m.notes?.toLowerCase().includes(q)); };
-  const getFilteredSubNodes   = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return subNodes; return subNodes.filter(s => s.name.toLowerCase().includes(q) || s.officeNum.toLowerCase().includes(q) || s.type.toLowerCase().includes(q)); };
-  const getFilteredManagers   = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return managers; return managers.filter(m => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || m.role.toLowerCase().includes(q)); };
+  const getFilteredMaterials   = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return materials; return materials.filter(m => m.name.toLowerCase().includes(q) || m.codification.toLowerCase().includes(q) || m.serialNumber.toLowerCase().includes(q) || m.notes?.toLowerCase().includes(q)); };
+  const getFilteredSubNodes    = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return subNodes; return subNodes.filter(s => s.name.toLowerCase().includes(q) || s.officeNum.toLowerCase().includes(q) || s.type.toLowerCase().includes(q)); };
+  const getFilteredManagers    = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return managers; return managers.filter(m => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || m.role.toLowerCase().includes(q)); };
   const getFilteredDepartments = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return departments; return departments.filter(d => d.name.toLowerCase().includes(q) || d.deptNum.toLowerCase().includes(q)); };
 
-  // ─── DÉCHARGE helpers ─────────────────────────────────────────────────────
-  // Check that selected assets all belong to the same SubNode
+  // ─── Décharge helpers ─────────────────────────────────────────────────────
   const dechargeNodeId = useMemo(() => {
     if (dechargeSelectedIds.length === 0) return null;
     const first = materials.find(m => m.id === dechargeSelectedIds[0]);
@@ -215,7 +229,7 @@ export default function ManagementTab({
     if (dechargeSelectedIds.includes(id)) {
       setDechargeSelectedIds(prev => prev.filter(x => x !== id));
     } else {
-      if (!canAddToSelection(id)) return; // silently block
+      if (!canAddToSelection(id)) return;
       setDechargeSelectedIds(prev => [...prev, id]);
     }
   };
@@ -226,12 +240,59 @@ export default function ManagementTab({
   };
 
   const triggerSystemBrowserPrint = () => {
-  document.title = "BON_DE_DECHARGE";
-  window.print();
-};
+    document.title = "BON_DE_DECHARGE";
+    window.print();
+  };
 
   const currentDate = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
-  const currentDateShort = new Date().toLocaleDateString('fr-FR');
+
+  // ─── Document upload handler ───────────────────────────────────────────────
+  const handleDocumentUpload = async (nodeId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const node = subNodes.find(n => n.id === nodeId) as SubNodeWithDocs;
+    if (!node) return;
+
+    const formData = new FormData();
+    Array.from(files).forEach(f => formData.append('files', f));
+
+    try {
+      const res = await fetch(`/api/subnodes/${nodeId}/documents`, { method: 'POST', body: formData });
+      const newDocs: SubNodeDocument[] = await res.json();
+      const existingDocs: SubNodeDocument[] = (node as any).documents || [];
+      const updated = { ...node, documents: [...existingDocs, ...newDocs] };
+      onUpdateSubNode(nodeId, updated as SubNode);
+      if (docsModalNode?.id === nodeId) setDocsModalNode(updated as SubNodeWithDocs);
+      triggerSuccess(`${newDocs.length} document(s) uploaded to "${node.name}"`);
+    } catch {
+      triggerSuccess('Upload failed — check server connection');
+    }
+  };
+
+  // ─── Document delete handler ──────────────────────────────────────────────
+  const handleDeleteDocument = async (nodeId: string, docId: string) => {
+    try {
+      await fetch(`/api/subnodes/${nodeId}/documents/${docId}`, { method: 'DELETE' });
+      const node = subNodes.find(n => n.id === nodeId) as SubNodeWithDocs;
+      if (!node) return;
+      const updated = {
+        ...node,
+        documents: ((node as any).documents || []).filter((d: SubNodeDocument) => d.id !== docId)
+      };
+      onUpdateSubNode(nodeId, updated as SubNode);
+      setDocsModalNode(updated as SubNodeWithDocs);
+      triggerSuccess('Document removed');
+    } catch {
+      triggerSuccess('Delete failed — check server connection');
+    }
+  };
+
+  const getDocIcon = (mimeType: string) => {
+    if (mimeType.includes('pdf'))   return { label: 'PDF', color: 'bg-rose-100 text-rose-700 border-rose-200' };
+    if (mimeType.includes('image')) return { label: 'IMG', color: 'bg-violet-100 text-violet-700 border-violet-200' };
+    if (mimeType.includes('word') || mimeType.includes('document')) return { label: 'DOC', color: 'bg-blue-100 text-blue-700 border-blue-200' };
+    if (mimeType.includes('sheet') || mimeType.includes('excel'))   return { label: 'XLS', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
+    return { label: 'FILE', color: 'bg-slate-100 text-slate-600 border-slate-200' };
+  };
 
   // ─── Décharge document renderer ───────────────────────────────────────────
   const renderDechargeDocument = (selectedMaterials: Material[]) => {
@@ -239,132 +300,64 @@ export default function ManagementTab({
     const node = subNodes.find(n => n.id === selectedMaterials[0].assignedNodeId) as any;
     const mng  = node ? managers.find(m => m.id === node.managerId) as any : null;
     const dept = mng ? departments.find(d => d.id === mng.departmentId) : null;
-    const totalCost = selectedMaterials.reduce((s, m) => s + m.cost, 0);
-    const slipNum   = `${String(new Date().getFullYear()).slice(-2)}${String(Date.now()).slice(-5)}`;
-
     const currentDate = new Date().toLocaleDateString("fr-FR");
 
-return (
-  <div
-    className="
-      printable-area
-      bg-white text-black
-      w-[210mm] min-h-[297mm]
-      mx-auto
-      px-[20mm] py-[18mm]
-      font-sans text-[13px] leading-[1.45]
-      print:w-[210mm] print:min-h-[297mm]
-      box-border flex flex-col
-    "
-  >
-
-    {/* HEADER */}
-    <div>
-      <div className="flex items-start gap-4">
-        <img
-          src="/tc.jpg"
-          alt="TECHNOCERAM"
-          className="w-16 object-contain"
-        />
-        <h1 className="font-black text-[28px] leading-none mt-1">
-          TECHNOCERAM
-        </h1>
-      </div>
-      <div className="border-b-[3px] border-red-600 mt-3" />
-      <p className="font-semibold text-[15px] mt-5">
-        N° : ______ /2026
-      </p>
-    </div>
-
-    {/* GAP between N° and TITLE */}
-    <div className="mt-14 mb-10 text-center">
-      <h2 className="font-black text-[22px]">
-        Bon de Décharge pour Matériel Informatique
-      </h2>
-    </div>
-
-    {/* GAP between TITLE and JE SOUSSIGNÉ */}
-    <div className="mt-6 text-[15px] leading-[1.65]">
-      <p>
-        Je soussigné(e),{" "}
-        <strong>{node?.name || "________________"}</strong>,{" "}
-        <strong>{node?.role || mng?.role || "________________"}</strong>{" "}
-        de la SARL TECHNOCERAM, déclare par la présente avoir reçu
-        le matériel informatique suivant, et fournir, à cet effet,
-        une copie de ma carte d'identité nationale n°{" "}
-        <strong>{(node as any)?.cin || "________________"}</strong>.
-      </p>
-    </div>
-
-    {/* MATERIAL */}
-    <div className="mt-5 text-[15px] leading-[1.55] space-y-0.5">
-      {selectedMaterials.map((mat) => (
-        <div key={mat.id} className="space-y-0.5">
-          <p>
-            <strong>{mat.type} :</strong>{" "}{mat.name}
-          </p>
-          <p>
-            <strong>Marque et modèle :</strong>{" "}{mat.name}
-          </p>
-          {mat.notes && (
-            <p>
-              <strong> </strong>{" "}{mat.notes}
-            </p>
-          )}
+    return (
+      <div className="printable-area bg-white text-black w-[210mm] min-h-[297mm] mx-auto px-[20mm] py-[18mm] font-sans text-[13px] leading-[1.45] print:w-[210mm] print:min-h-[297mm] box-border flex flex-col">
+        <div>
+          <div className="flex items-start gap-4">
+            <img src="/tc.jpg" alt="TECHNOCERAM" className="w-16 object-contain" />
+            <h1 className="font-black text-[28px] leading-none mt-1">TECHNOCERAM</h1>
+          </div>
+          <div className="border-b-[3px] border-red-600 mt-3" />
+          <p className="font-semibold text-[15px] mt-5">N° : ______ /2026</p>
         </div>
-      ))}
-    </div>
-
-    {/* COMMITMENTS */}
-    <div className="mt-7 text-[15px] leading-[1.65] space-y-4">
-      <p>
-        Je reconnais avoir reçu ce matériel en état{" "}
-        <strong>neuf</strong> de fonctionnement et m'engage à en faire
-        un usage approprié conformément aux politiques de sécurité
-        informatique de l'entreprise.
-      </p>
-      <p>
-        Je m'engage également à prendre toutes les mesures nécessaires
-        pour assurer la sécurité et la confidentialité des données
-        stockées sur cet appareil, ainsi que pour prévenir tout
-        dommage, perte ou vol.
-      </p>
-      <p>
-        En cas de départ de l'entreprise ou de transfert de
-        responsabilité, je m'engage à restituer ce matériel en bon
-        état dans les plus brefs délais.
-      </p>
-    </div>
-
-    {/* FLEXIBLE SPACER — pushes signature to bottom */}
-    <div className="flex-1 min-h-10" />
-
-    {/* SIGNATURE — right aligned, exactly like PDF */}
-    <div className="flex justify-end">
-      <div className="w-64 mt-14">
-        <p className="text-[15px] mb-2">
-  Fait à BATNA, le {(() => {
-    const d = selectedMaterials[0]?.purchaseDate;
-    if (!d) return currentDate;
-    const date = new Date(d);
-    date.setHours(date.getHours() + 1);
-    return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
-  })()}
-</p>
-        <p className="text-[15px] mb-16 mt-16">
-          Signature : ___________________________
-        </p>
-        <p className="font-bold uppercase text-[15px]">
-          {node?.name}
-        </p>
-        <p className="font-semibold text-[15px]">
-          SARL TECHNOCERAM
-        </p>
+        <div className="mt-14 mb-10 text-center">
+          <h2 className="font-black text-[22px]">Bon de Décharge pour Matériel Informatique</h2>
+        </div>
+        <div className="mt-6 text-[15px] leading-[1.65]">
+          <p>
+            Je soussigné(e),{" "}
+            <strong>{node?.name || "________________"}</strong>,{" "}
+            <strong>{node?.role || mng?.role || "________________"}</strong>{" "}
+            de la SARL TECHNOCERAM, déclare par la présente avoir reçu le matériel informatique suivant,
+            et fournir, à cet effet, une copie de ma carte d'identité nationale n°{" "}
+            <strong>{(node as any)?.cin || "________________"}</strong>.
+          </p>
+        </div>
+        <div className="mt-5 text-[15px] leading-[1.55] space-y-0.5">
+          {selectedMaterials.map((mat) => (
+            <div key={mat.id} className="space-y-0.5">
+              <p><strong>{mat.type} :</strong> {mat.name}</p>
+              <p><strong>Marque et modèle :</strong> {mat.name}</p>
+              {mat.notes && <p><strong> </strong> {mat.notes}</p>}
+            </div>
+          ))}
+        </div>
+        <div className="mt-7 text-[15px] leading-[1.65] space-y-4">
+          <p>Je reconnais avoir reçu ce matériel en état <strong>neuf</strong> de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
+          <p>Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.</p>
+          <p>En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel en bon état dans les plus brefs délais.</p>
+        </div>
+        <div className="flex-1 min-h-10" />
+        <div className="flex justify-end">
+          <div className="w-64 mt-14">
+            <p className="text-[15px] mb-2">
+              Fait à BATNA, le {(() => {
+                const d = selectedMaterials[0]?.purchaseDate;
+                if (!d) return currentDate;
+                const date = new Date(d);
+                date.setHours(date.getHours() + 1);
+                return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
+              })()}
+            </p>
+            <p className="text-[15px] mb-16 mt-16">Signature : ___________________________</p>
+            <p className="font-bold uppercase text-[15px]">{node?.name}</p>
+            <p className="font-semibold text-[15px]">SARL TECHNOCERAM</p>
+          </div>
+        </div>
       </div>
-    </div>
-
-  </div>
-)
+    );
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -407,8 +400,8 @@ return (
           {activeForm === 'material' && (
             <form onSubmit={handleMaterialSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
-                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><Laptop className="text-[#FF1E1E] w-4.5 h-4.5" />ADD NEW ASSET</h4>
-                <p className="text-[11px] text-[#86868B] mt-1">Registers new operational hardware. System auto-generates ERP codes.</p>
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><Laptop className="text-[#FF1E1E] w-4.5 h-4.5" />{t('add_new_asset')}</h4>
+                <p className="text-[11px] text-[#86868B] mt-1">Registers new operational hardware. System auto-generates codes.</p>
               </div>
               {subNodes.length === 0 ? (
                 <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3">
@@ -477,7 +470,6 @@ return (
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
-                      
                       <span className="ml-1 text-[#FF1E1E] font-black"></span>
                     </label>
                     <textarea rows={3} placeholder="e.g. Processeur: AMD RYZEN 7 8845HS @5.1GHz&#10;RAM: 16Gb DDR5&#10;Disque: 1Tb SSD"
@@ -493,11 +485,11 @@ return (
             </form>
           )}
 
-          {/* B. SUBNODE FORM — now with Role + CIN */}
+          {/* B. SUBNODE FORM — with Role + CIN (from File 1) */}
           {activeForm === 'subnode' && (
             <form onSubmit={handleSubNodeSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
-                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><Layers className="text-emerald-600 w-4.5 h-4.5" />Create Office Desk / Card Element</h4>
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><Layers className="text-emerald-600 w-4.5 h-4.5" />{t('create_office_desk')}</h4>
                 <p className="text-[11px] text-[#86868B] mt-1">Adds a card under a manager. Office number is auto-assigned.</p>
               </div>
               <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
@@ -514,8 +506,6 @@ return (
                       className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                       value={nodeName} onChange={(e) => setNodeName(e.target.value)} />
                   </div>
-
-                  {/* ── NEW: Role field ── */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
                       Role / Title <span className="text-slate-400 normal-case font-normal">(optional — shown in Décharge)</span>
@@ -524,10 +514,15 @@ return (
                       className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                       value={nodeRole} onChange={(e) => setNodeRole(e.target.value)} />
                   </div>
-
-                  {/* ── NEW: CIN field ── */}
-
-
+                  {/* CIN field — from File 1 */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <CreditCard className="w-3 h-3" />CIN <span className="text-slate-400 normal-case font-normal">(optional — shown in Décharge)</span>
+                    </label>
+                    <input type="text" placeholder="e.g. 123456789"
+                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                      value={nodeCin} onChange={(e) => setNodeCin(e.target.value)} />
+                  </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Direct Responsible Head (Manager)</label>
                     <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
@@ -554,11 +549,11 @@ return (
             </form>
           )}
 
-          {/* C. MANAGER FORM — now with CIN */}
+          {/* C. MANAGER FORM */}
           {activeForm === 'manager' && (
             <form onSubmit={handleManagerSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
-                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><UserPlus className="text-[#FF1E1E] w-4.5 h-4.5" />Appoint Corporate Department Head</h4>
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><UserPlus className="text-[#FF1E1E] w-4.5 h-4.5" />{t('appoint_corporate_head')}</h4>
                 <p className="text-[11px] text-[#86868B] mt-1">Enrolls an executive manager. Office suite auto-assigned.</p>
               </div>
               <div className="flex items-center gap-2 px-3.5 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
@@ -584,7 +579,6 @@ return (
                     className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                     value={mngRole} onChange={(e) => setMngRole(e.target.value)} />
                 </div>
-
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -613,7 +607,7 @@ return (
           {activeForm === 'dept' && (
             <form onSubmit={handleDeptSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
-                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><FolderPlus className="text-[#FF1E1E] w-4.5 h-4.5" />Define System Department</h4>
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><FolderPlus className="text-[#FF1E1E] w-4.5 h-4.5" />{t('define_system_department')}</h4>
                 <p className="text-[11px] text-[#86868B] mt-1">Department number assigned automatically.</p>
               </div>
               <div className="flex items-center gap-2 px-3.5 py-2.5 bg-rose-50 border border-rose-200 rounded-xl">
@@ -649,21 +643,21 @@ return (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h4 className="text-sm font-black text-slate-950 uppercase tracking-widest flex items-center gap-1.5">
-                <LayoutList className="w-4 h-4 text-[#FF1E1E]" />Database Records CRUD
+                <LayoutList className="w-4 h-4 text-[#FF1E1E]" />{t('database_records')}
               </h4>
               <p className="text-[11px] text-[#86868B] mt-0.5">Edit, delete, and generate Décharge handover certifications</p>
             </div>
             <div className="flex flex-wrap bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs shrink-0 select-none">
               {[
-                { id: 'materials', label: `Assets (${materials.length})` },
-                { id: 'subnodes',  label: `Desks (${subNodes.length})` },
-                { id: 'managers',  label: `Heads (${managers.length})` },
-                { id: 'depts',     label: `Depts (${departments.length})` },
-              ].map(t => (
-                <button key={t.id}
-                  onClick={() => { setInspectorTab(t.id as any); setInspectorSearch(''); setDechargeSelectedIds([]); }}
-                  className={`px-2.5 py-1 rounded-md font-bold transition-all text-[11px] cursor-pointer ${inspectorTab === t.id ? 'bg-white text-slate-950 shadow-xs' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
-                  {t.label}
+                { id: 'materials', label: `${t('assets')} (${materials.length})` },
+                { id: 'subnodes',  label: `${t('desks')} (${subNodes.length})` },
+                { id: 'managers',  label: `${t('heads')} (${managers.length})` },
+                { id: 'depts',     label: `${t('depts')} (${departments.length})` },
+              ].map(tab => (
+                <button key={tab.id}
+                  onClick={() => { setInspectorTab(tab.id as any); setInspectorSearch(''); setDechargeSelectedIds([]); }}
+                  className={`px-2.5 py-1 rounded-md font-bold transition-all text-[11px] cursor-pointer ${inspectorTab === tab.id ? 'bg-white text-slate-950 shadow-xs' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -677,7 +671,7 @@ return (
               value={inspectorSearch} onChange={(e) => setInspectorSearch(e.target.value)} />
           </div>
 
-          {/* ── DÉCHARGE ACTION BAR — only on Materials tab ── */}
+          {/* ── Décharge action bar — only on Materials tab ── */}
           {inspectorTab === 'materials' && (
             <div className="mt-3 flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
               <div className="flex items-center gap-2">
@@ -687,7 +681,7 @@ return (
                   <p className="text-[9.5px] text-slate-500">
                     {dechargeSelectedIds.length === 0
                       ? 'Cochez les équipements ci-dessous — ils doivent appartenir au même utilisateur.'
-                      : <span className="text-emerald-700 font-bold">{dechargeSelectedIds.length} équipement(s) sélectionné(s) {dechargeNodeId ? `— ${(subNodes.find(n=>n.id===dechargeNodeId) as any)?.name || ''}` : ''}</span>
+                      : <span className="text-emerald-700 font-bold">{dechargeSelectedIds.length} équipement(s) sélectionné(s) {dechargeNodeId ? `— ${(subNodes.find(n => n.id === dechargeNodeId) as any)?.name || ''}` : ''}</span>
                     }
                   </p>
                 </div>
@@ -699,14 +693,8 @@ return (
                     Effacer
                   </button>
                 )}
-                <button
-                  onClick={openDechargePreview}
-                  disabled={dechargeSelectedIds.length === 0}
-                  className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
-                    dechargeSelectedIds.length > 0
-                      ? 'bg-[#FF1E1E] hover:bg-[#E01B1B] text-white cursor-pointer shadow-sm'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}>
+                <button onClick={openDechargePreview} disabled={dechargeSelectedIds.length === 0}
+                  className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${dechargeSelectedIds.length > 0 ? 'bg-[#FF1E1E] hover:bg-[#E01B1B] text-white cursor-pointer shadow-sm' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
                   <Printer className="w-3.5 h-3.5" />
                   Générer Décharge ({dechargeSelectedIds.length})
                 </button>
@@ -725,25 +713,12 @@ return (
                 const isBlocked = !isChecked && dechargeSelectedIds.length > 0 && !canAddToSelection(m.id);
                 return (
                   <div key={m.id}
-                    className={`flex justify-between items-center p-3.5 rounded-2xl border transition-colors gap-3 ${
-                      isChecked
-                        ? 'bg-[#FF1E1E]/5 border-[#FF1E1E]/30 ring-1 ring-[#FF1E1E]/20'
-                        : isBlocked
-                        ? 'bg-slate-50 border-[#D2D2D7]/40 opacity-40'
-                        : 'bg-slate-50 border-[#D2D2D7]/40 hover:bg-slate-100/40'
-                    }`}>
-                    {/* Checkbox */}
-                    <button
-                      onClick={() => toggleDechargeSelect(m.id)}
-                      disabled={isBlocked}
+                    className={`flex justify-between items-center p-3.5 rounded-2xl border transition-colors gap-3 ${isChecked ? 'bg-[#FF1E1E]/5 border-[#FF1E1E]/30 ring-1 ring-[#FF1E1E]/20' : isBlocked ? 'bg-slate-50 border-[#D2D2D7]/40 opacity-40' : 'bg-slate-50 border-[#D2D2D7]/40 hover:bg-slate-100/40'}`}>
+                    <button onClick={() => toggleDechargeSelect(m.id)} disabled={isBlocked}
                       className={`shrink-0 transition-colors ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                       title={isBlocked ? 'Doit appartenir au même utilisateur' : ''}>
-                      {isChecked
-                        ? <CheckSquare className="w-4 h-4 text-[#FF1E1E]" />
-                        : <Square className={`w-4 h-4 ${isBlocked ? 'text-slate-300' : 'text-slate-400 hover:text-slate-600'}`} />
-                      }
+                      {isChecked ? <CheckSquare className="w-4 h-4 text-[#FF1E1E]" /> : <Square className={`w-4 h-4 ${isBlocked ? 'text-slate-300' : 'text-slate-400 hover:text-slate-600'}`} />}
                     </button>
-
                     <div className="truncate min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-slate-950 text-xs tracking-wide">{m.codification}</span>
@@ -759,7 +734,6 @@ return (
                         </span>
                       )}
                     </div>
-
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button onClick={() => setEditingItem({ type: 'material', id: m.id, data: { ...m } })}
                         className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer">
@@ -775,11 +749,12 @@ return (
               }) : <p className="text-xs text-[#86868B] text-center py-10">No matching assets found.</p>
             )}
 
-            {/* SUBNODES */}
+            {/* SUBNODES — with document buttons */}
             {inspectorTab === 'subnodes' && (
               getFilteredSubNodes().length > 0 ? getFilteredSubNodes().map((s: any) => {
                 const mng = managers.find(man => man.id === s.managerId);
                 const count = materials.filter(m => m.assignedNodeId === s.id).length;
+                const docCount = (s.documents || []).length;
                 return (
                   <div key={s.id} className="flex justify-between items-center p-3.5 rounded-2xl bg-slate-50 border border-[#D2D2D7]/40 hover:bg-slate-100/40 transition-colors">
                     <div className="truncate pr-3 min-w-0">
@@ -793,9 +768,28 @@ return (
                         Manager: {mng ? mng.name : 'Unassigned'}
                         {s.cin && <> • CIN : <span className="font-mono">{s.cin}</span></>}
                       </span>
-                      <span className="text-[9px] font-extrabold text-teal-600 mt-1 block uppercase tracking-wide">{count} {count === 1 ? 'allocated asset' : 'allocated assets'}</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[9px] font-extrabold text-teal-600 uppercase tracking-wide">{count} {count === 1 ? 'allocated asset' : 'allocated assets'}</span>
+                        {docCount > 0 && (
+                          <span className="text-[9px] font-extrabold text-indigo-500 uppercase tracking-wide flex items-center gap-0.5">
+                            <Paperclip className="w-2.5 h-2.5" />{docCount} doc{docCount > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      {/* Upload button */}
+                      <label title="Upload documents" className="p-1.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-lg transition-colors cursor-pointer">
+                        <FileUp className="w-3.5 h-3.5" />
+                        <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt"
+                          onChange={(e) => handleDocumentUpload(s.id, e.target.files)} />
+                      </label>
+                      {/* Documents view button */}
+                      <button onClick={() => setDocsModalNode(s as SubNodeWithDocs)} title={`View documents (${docCount})`}
+                        className={`p-1.5 border rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-bold ${docCount > 0 ? 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100' : 'bg-white text-slate-400 border-slate-200 hover:text-slate-600 hover:bg-slate-100'}`}>
+                        <Paperclip className="w-3.5 h-3.5" />
+                        {docCount > 0 && <span>{docCount}</span>}
+                      </button>
                       <button onClick={() => setEditingItem({ type: 'subnode', id: s.id, data: { ...s } })}
                         className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { if (confirm(`Delete desk node? (${count} assets affected)`)) { onDeleteSubNode(s.id); triggerSuccess('Deleted desk node'); } }}
@@ -867,6 +861,78 @@ return (
           </div>
         </div>
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          DOCUMENTS MODAL
+      ════════════════════════════════════════════════════════════════════════ */}
+      {docsModalNode && (
+        <div className="fixed inset-0 bg-[#1D1D1F]/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl border border-[#D2D2D7]/50 shadow-2xl max-w-lg w-full p-6 animate-in zoom-in-95 duration-150 flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4 shrink-0">
+              <div className="flex items-center gap-2">
+                <Paperclip className="w-4 h-4 text-indigo-500" />
+                <div>
+                  <h3 className="text-sm font-black text-slate-950 uppercase tracking-wider">Documents</h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{docsModalNode.name} — Office #{docsModalNode.officeNum}</p>
+                </div>
+              </div>
+              <button onClick={() => setDocsModalNode(null)} className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            <label className="shrink-0 flex items-center justify-center gap-2 border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 hover:bg-indigo-50 rounded-2xl py-4 cursor-pointer transition-all group mb-4">
+              <FileUp className="w-4 h-4 text-indigo-400 group-hover:text-indigo-600 transition-colors" />
+              <span className="text-xs font-bold text-indigo-500 group-hover:text-indigo-700 transition-colors">Click to upload documents</span>
+              <span className="text-[10px] text-slate-400">(PDF, DOC, XLS, IMG...)</span>
+              <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt"
+                onChange={(e) => { handleDocumentUpload(docsModalNode.id, e.target.files); e.target.value = ''; }} />
+            </label>
+            <div className="flex-1 overflow-y-auto space-y-2 pr-0.5">
+              {((docsModalNode as any).documents || []).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Paperclip className="w-8 h-8 text-slate-200 mb-3" />
+                  <p className="text-xs font-bold text-slate-400">No documents attached</p>
+                  <p className="text-[10px] text-slate-300 mt-1">Upload files using the zone above</p>
+                </div>
+              ) : (
+                ((docsModalNode as any).documents as SubNodeDocument[]).map((doc) => {
+                  const icon = getDocIcon(doc.type);
+                  const uploadDate = new Date(doc.uploadedAt).toLocaleDateString('fr-FR');
+                  return (
+                    <div key={doc.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100/60 transition-colors group">
+                      <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border font-mono ${icon.color}`}>{icon.label}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-800 truncate">{doc.name}</p>
+                        <p className="text-[9.5px] text-slate-400 mt-0.5">{uploadDate}</p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a href={doc.url} download={doc.name}
+                          className="p-1.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-lg transition-colors cursor-pointer" title="Download">
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+                        {(doc.type.includes('image') || doc.type.includes('pdf')) && (
+                          <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                            className="p-1.5 bg-white text-slate-500 hover:text-violet-600 hover:bg-violet-50 border border-slate-200 rounded-lg transition-colors cursor-pointer" title="Preview">
+                            <Eye className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        <button onClick={() => handleDeleteDocument(docsModalNode.id, doc.id)}
+                          className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg transition-colors cursor-pointer" title="Delete">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {((docsModalNode as any).documents || []).length > 0 && (
+              <div className="shrink-0 mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
+                <span className="text-[10px] text-slate-400 font-semibold">{((docsModalNode as any).documents || []).length} document(s) attached</span>
+                <button onClick={() => setDocsModalNode(null)} className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold rounded-xl transition-all cursor-pointer">Done</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════════════
           EDIT MODAL
@@ -968,7 +1034,7 @@ return (
                         <option value="Printer">Printer</option><option value="Server">Server</option>
                         <option value="Switch">Switch</option><option value="Desktop">Desktop PC</option>
                         <option value="Screen">Screen</option><option value="UPS">UPS</option>
-                        <option value="Laptop">Laptop</option><option value="Falsh Disque">Falsh Disque</option>
+                        <option value="Laptop">Laptop</option><option value="Flash Disque">Flash Disque</option>
                         <option value="Mouse">Mouse</option><option value="Keyboard">Keyboard</option>
                         <option value="Phone">Phone</option><option value="Cable">Cable</option>
                         <option value="Desk Phone">Desk Phone</option><option value="Other">Other</option>
@@ -1011,12 +1077,11 @@ return (
       )}
 
       {/* ════════════════════════════════════════════════════════════════════════
-          DÉCHARGE PREVIEW MODAL — Full French document
+          DÉCHARGE PREVIEW MODAL
       ════════════════════════════════════════════════════════════════════════ */}
       {dechargePreviewMaterials && (
         <div className="fixed inset-0 bg-[#1D1D1F]/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full p-8 my-8 relative flex flex-col max-h-[92vh]">
-            {/* Modal header — hidden on print */}
             <div className="flex items-center justify-between border-b border-slate-150 pb-4 mb-6 select-none shrink-0 print:hidden">
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="w-5 h-5 text-[#FF1E1E]" />
@@ -1034,8 +1099,6 @@ return (
                   className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
               </div>
             </div>
-
-            {/* Scrollable document area */}
             <div className="flex-1 overflow-y-auto print:overflow-visible">
               {renderDechargeDocument(dechargePreviewMaterials)}
             </div>
@@ -1044,7 +1107,7 @@ return (
       )}
 
       {/* ════════════════════════════════════════════════════════════════════════
-          DEPT REPORT MODAL (unchanged)
+          DEPT REPORT MODAL
       ════════════════════════════════════════════════════════════════════════ */}
       {printDeptReport && (() => {
         const dept = printDeptReport;

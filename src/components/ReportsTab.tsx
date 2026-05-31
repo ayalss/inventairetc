@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Material, Department, SubNode } from '../types';
 import { Download, Printer, Filter, Cpu, Loader2, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx-js-style';
@@ -8,6 +9,7 @@ interface ReportsTabProps {
 }
 
 export default function ReportsTab({ materials, departments }: ReportsTabProps) {
+  const { t } = useTranslation();
   const [subNodes, setSubNodes] = useState<SubNode[]>([]);
 
   // Fetch subnodes directly from the API — same source as PortalView
@@ -189,11 +191,11 @@ const handleCSVExport = () => {
         {/* KPI 2: Total Items */}
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868B] block">Audited Elements</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868B] block">{t('audited_elements')}</span>
             <span className="text-2xl font-bold tracking-tight text-[#1D1D1F]">
               {stats.totalCount} <span className="text-xs text-[#86868B] font-normal">items</span>
             </span>
-            <span className="text-[10px] text-[#86868B] block">Across 3 companies</span>
+            <span className="text-[10px] text-[#86868B] block">{t('across_3_companies')}</span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800">
             <Cpu className="w-5 h-5" />
@@ -202,19 +204,19 @@ const handleCSVExport = () => {
 
         {/* KPI 3: Status */}
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm flex flex-col justify-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868B]">Inventory Status Health</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868B]">{t('inventory_status_health')}</span>
           <div className="grid grid-cols-3 gap-2">
             <div className="bg-[#34C759]/10 text-center py-1.5 px-2 rounded-lg border border-[#34C759]/20">
               <span className="text-xs font-bold text-[#34C759] block">{stats.active}</span>
-              <span className="text-[9px] font-medium text-[#34C759] uppercase tracking-wide">Live</span>
+              <span className="text-[9px] font-medium text-[#34C759] uppercase tracking-wide">{t('status_live')}</span>
             </div>
             <div className="bg-[#FF9500]/10 text-center py-1.5 px-2 rounded-lg border border-[#FF9500]/20">
               <span className="text-xs font-bold text-[#FF9500] block">{stats.repair}</span>
-              <span className="text-[9px] font-medium text-[#FF9500] uppercase tracking-wide">Repair</span>
+              <span className="text-[9px] font-medium text-[#FF9500] uppercase tracking-wide">{t('status_repair')}</span>
             </div>
             <div className="bg-[#FF1E1E]/10 text-center py-1.5 px-2 rounded-lg border border-[#FF1E1E]/20">
               <span className="text-xs font-bold text-[#FF1E1E] block">{stats.storage}</span>
-              <span className="text-[9px] font-medium text-[#FF1E1E] uppercase tracking-wide">Stock</span>
+              <span className="text-[9px] font-medium text-[#FF1E1E] uppercase tracking-wide">{t('status_stock')}</span>
             </div>
           </div>
         </div>
@@ -226,8 +228,8 @@ const handleCSVExport = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm space-y-4">
           <div>
-            <h4 className="text-xs font-bold text-[#1D1D1F] tracking-wider uppercase">IT Investments by Entity</h4>
-            <p className="text-[11px] text-[#86868B]">Total book capital allocation across TC, LX, and PL .</p>
+            <h4 className="text-xs font-bold text-[#1D1D1F] tracking-wider uppercase">{t('it_investments_by_entity')}</h4>
+            <p className="text-[11px] text-[#86868B]">{t('total_book_capital_allocation')}</p>
           </div>
           <div className="space-y-4 pt-2">
             {[
@@ -253,8 +255,8 @@ const handleCSVExport = () => {
 
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm space-y-4">
           <div>
-            <h4 className="text-xs font-bold text-[#1D1D1F] tracking-wider uppercase">Equipment Type Distribution</h4>
-            <p className="text-[11px] text-[#86868B]">Quantity layout of hardware classes across selected parameters.</p>
+            <h4 className="text-xs font-bold text-[#1D1D1F] tracking-wider uppercase">{t('equipment_type_distribution')}</h4>
+            <p className="text-[11px] text-[#86868B]">{t('quantity_layout_hardware_classes')}</p>
           </div>
           <div className="grid grid-cols-4 gap-3 pt-1">
             {materialTypes.map((type) => {
@@ -299,31 +301,31 @@ const handleCSVExport = () => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-[#86868B]" />
-              <h4 className="text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">Configure Sheet Report Filters</h4>
+              <h4 className="text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">{t('configure_sheet_report_filters')}</h4>
             </div>
             <div className="flex items-center gap-2.5">
               <button onClick={handleCSVExport} disabled={exportingCSV}
                 className="px-4 py-2 bg-white hover:bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60">
                 {exportingCSV ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                Export CSV
+                {t('export_csv')}
               </button>
               <button onClick={handlePDFExport} disabled={exportingPDF}
                 className="px-4 py-2 bg-[#FF1E1E] hover:bg-[#E01B1B] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60">
                 {exportingPDF ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
-                Print Report
+                {t('print_report')}
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
             <div className="md:col-span-1">
-              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Asset Reference</label>
-              <input type="text" placeholder="Search matching words..."
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">{t('asset_reference')}</label>
+              <input type="text" placeholder={t('search_matching_words')}
                 className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] placeholder-[#86868B] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                 value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Company Entity</label>
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">{t('company_entity')}</label>
               <select className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                 value={selectedCompany} onChange={(e) => setSelectedCompany(e.target.value)}>
                 <option value="ALL">All Companies (TC, LX, PL)</option>
@@ -333,7 +335,7 @@ const handleCSVExport = () => {
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Department</label>
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">{t('department')}</label>
               <select className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                 value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
                 <option value="ALL">All Departments</option>
@@ -341,7 +343,7 @@ const handleCSVExport = () => {
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Equipment Type</label>
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">{t('equipment_type')}</label>
               <select className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                 value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
                 <option value="ALL">All Equipment Categories</option>
@@ -349,7 +351,7 @@ const handleCSVExport = () => {
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">Operational Status</label>
+              <label className="text-[10px] font-bold text-[#86868B] block uppercase tracking-wider mb-1.5">{t('operational_status')}</label>
               <select className="w-full text-xs bg-[#F5F5F7] border border-[#D2D2D7]/60 rounded-lg px-3 py-2 text-[#1D1D1F] cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                 value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
                 <option value="ALL">All Statuses</option>
@@ -367,14 +369,14 @@ const handleCSVExport = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#FAF9F6] border-b border-[#D2D2D7] text-[10px] font-bold text-[#86868B] uppercase tracking-wider">
-                <th className="py-3 px-5">ID Codification</th>
-                <th className="py-3 px-4">Asset Name</th>
-                <th className="py-3 px-4">Entity</th>
-                <th className="py-3 px-4">Department Name</th>
-                <th className="py-3 px-4">UTILISATEUR</th>
-                <th className="py-3 px-4">Serial Number</th>
-                <th className="py-3 px-4">ConFIguration</th>
-                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-5">{t('id_codification')}</th>
+                <th className="py-3 px-4">{t('asset_name')}</th>
+                <th className="py-3 px-4">{t('entity')}</th>
+                <th className="py-3 px-4">{t('department_name')}</th>
+                <th className="py-3 px-4">{t('utilisateur')}</th>
+                <th className="py-3 px-4">{t('serial_number')}</th>
+                <th className="py-3 px-4">{t('configuration')}</th>
+                <th className="py-3 px-4 text-center">{t('status')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F5F5F7] text-xs text-[#424245]">
@@ -428,8 +430,8 @@ const handleCSVExport = () => {
                   <td colSpan={8} className="py-8 text-center text-[#86868B]">
                     <div className="space-y-1">
                       <AlertCircle className="w-8 h-8 text-[#86868B]/40 mx-auto" />
-                      <p className="font-semibold text-[#1D1D1F]">No assets match your active filter configurations</p>
-                      <p className="text-[11px]">Refine your filters, search queries, or selections above</p>
+                      <p className="font-semibold text-[#1D1D1F]">{t('no_assets_match_filters')}</p>
+                      <p className="text-[11px]">{t('refine_filters_above')}</p>
                     </div>
                   </td>
                 </tr>
