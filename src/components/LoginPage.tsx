@@ -123,7 +123,7 @@ export default function LoginPage({ onLoginSuccess, defaultEmail }: LoginPagePro
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="email"
-                  placeholder="name@luxestile.com"
+                  placeholder="name@technoceram-dz.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

@@ -172,7 +172,7 @@ export default function ManagementTab({
       company: associatedManager.company, deptNum: resolvedDeptNum,
       officeNum: targetNode.officeNum, materialNum, codification, status: matStatus,
       serialNumber: matSerial.trim() || `SN-PENDING-${Math.floor(1000 + Math.random() * 9000)}`,
-      purchaseDate: matDate || undefined, cost: Number(matCost) || 0,
+      purchaseDate: matDate ? matDate : undefined, cost: Number(matCost) || 0,
       notes: matNotes.trim() || undefined, assignedNodeId: activeNodeId
     };
     onAddMaterial(newMaterial);
@@ -295,70 +295,81 @@ export default function ManagementTab({
   };
 
   // ─── Décharge document renderer ───────────────────────────────────────────
-  const renderDechargeDocument = (selectedMaterials: Material[]) => {
-    if (selectedMaterials.length === 0) return null;
-    const node = subNodes.find(n => n.id === selectedMaterials[0].assignedNodeId) as any;
-    const mng  = node ? managers.find(m => m.id === node.managerId) as any : null;
-    const dept = mng ? departments.find(d => d.id === mng.departmentId) : null;
-    const currentDate = new Date().toLocaleDateString("fr-FR");
-
-    return (
-      <div className="printable-area bg-white text-black w-[210mm] min-h-[297mm] mx-auto px-[20mm] py-[18mm] font-sans text-[13px] leading-[1.45] print:w-[210mm] print:min-h-[297mm] box-border flex flex-col">
-        <div>
-          <div className="flex items-start gap-4">
-            <img src="/tc.jpg" alt="TECHNOCERAM" className="w-16 object-contain" />
-            <h1 className="font-black text-[28px] leading-none mt-1">TECHNOCERAM</h1>
-          </div>
-          <div className="border-b-[3px] border-red-600 mt-3" />
-          <p className="font-semibold text-[15px] mt-5">N° : ______ /2026</p>
-        </div>
-        <div className="mt-14 mb-10 text-center">
-          <h2 className="font-black text-[22px]">Bon de Décharge pour Matériel Informatique</h2>
-        </div>
-        <div className="mt-6 text-[15px] leading-[1.65]">
-          <p>
-            Je soussigné(e),{" "}
-            <strong>{node?.name || "________________"}</strong>,{" "}
-            <strong>{node?.role || mng?.role || "________________"}</strong>{" "}
-            de la SARL TECHNOCERAM, déclare par la présente avoir reçu le matériel informatique suivant,
-            et fournir, à cet effet, une copie de ma carte d'identité nationale n°{" "}
-            <strong>{(node as any)?.cin || "________________"}</strong>.
-          </p>
-        </div>
-        <div className="mt-5 text-[15px] leading-[1.55] space-y-0.5">
-          {selectedMaterials.map((mat) => (
-            <div key={mat.id} className="space-y-0.5">
-              <p><strong>{mat.type} :</strong> {mat.name}</p>
-              <p><strong>Marque et modèle :</strong> {mat.name}</p>
-              {mat.notes && <p><strong> </strong> {mat.notes}</p>}
+    const renderDechargeDocument = (selectedMaterials: Material[]) => {
+        if (selectedMaterials.length === 0) return null;
+        const node = subNodes.find(n => n.id === selectedMaterials[0].assignedNodeId) as any;
+        const mng  = node ? managers.find(m => m.id === node.managerId) as any : null;
+        const dept = mng ? departments.find(d => d.id === mng.departmentId) : null;
+        const currentDate = new Date().toLocaleDateString("fr-FR");
+    
+        return (
+          <div className="printable-area bg-white text-black w-[210mm] h-[297mm] mx-auto px-[20mm] py-[14mm] font-sans text-[12.5px] leading-[1.5] print:w-[210mm] print:h-[297mm] box-border flex flex-col overflow-hidden">
+            {/* ── Header ── */}
+            <div>
+              <div className="flex items-start gap-4">
+                <img src="/tc.jpg" alt="TECHNOCERAM" className="w-14 object-contain" />
+                <h1 className="font-black text-[20px] leading-none mt-1">TECHNOCERAM</h1>
+              </div>
+              <div className="border-b-[3px] border-red-600 mt-5" />
+              <p className="font-semibold text-[13px] mt-3">N° : ______ /2026</p>
             </div>
-          ))}
-        </div>
-        <div className="mt-7 text-[15px] leading-[1.65] space-y-4">
-          <p>Je reconnais avoir reçu ce matériel en état <strong>neuf</strong> de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
-          <p>Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.</p>
-          <p>En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel en bon état dans les plus brefs délais.</p>
-        </div>
-        <div className="flex-1 min-h-10" />
-        <div className="flex justify-end">
-          <div className="w-64 mt-14">
-            <p className="text-[15px] mb-2">
-              Fait à BATNA, le {(() => {
-                const d = selectedMaterials[0]?.purchaseDate;
-                if (!d) return currentDate;
-                const date = new Date(d);
-                date.setHours(date.getHours() + 1);
-                return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
-              })()}
-            </p>
-            <p className="text-[15px] mb-16 mt-16">Signature : ___________________________</p>
-            <p className="font-bold uppercase text-[15px]">{node?.name}</p>
-            <p className="font-semibold text-[15px]">SARL TECHNOCERAM</p>
+    
+            {/* ── Title ── */}
+            <div className="mt-15 text-center">
+              <h2 className="font-black text-[18px]">Bon de Décharge pour Matériel Informatique</h2>
+            </div>
+    
+            {/* ── Intro paragraph ── */}
+            <div className="mt-15 text-[13px] leading-[1.7]">
+              <p>
+                Je soussigné(e),{" "}
+                <strong>{node?.name || "________________"}</strong>,{" "}
+                <strong>{node?.role || mng?.role || "________________"}</strong>{" "}
+                de la SARL TECHNOCERAM, déclare par la présente avoir reçu le matériel informatique suivant,
+                et fournir, à cet effet, une copie de ma carte d'identité nationale n°{" "}
+                <strong>{(node as any)?.cin || "________________"}</strong>.
+              </p>
+            </div>
+    
+            {/* ── Materials list ── */}
+            <div className="mt-4 text-[13px] leading-[1.6] space-y-1">
+              {selectedMaterials.map((mat) => (
+                <div key={mat.id} className="space-y-0.5">
+                  <p><strong>{mat.type} :</strong> {mat.name}</p>
+                  <p><strong>Marque et modèle :</strong> {mat.name}</p>
+                  {mat.notes && <p className="whitespace-pre-wrap text-[12.5px] leading-[1.55]">{mat.notes}</p>}
+                </div>
+              ))}
+            </div>
+    
+            {/* ── Commitment paragraphs ── */}
+            <div className="mt-5 text-[13px] leading-[1.7] space-y-3">
+              <p>Je reconnais avoir reçu ce matériel en <strong>bon</strong> état de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
+              <p>Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.</p>
+              <p>En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel en bon état dans les plus brefs délais.</p>
+            </div>
+    
+            {/* ── Signature always pinned to bottom ── */}
+            <div className="mt-auto flex justify-end pb-16">
+              <div className="w-72">
+                <p className="text-[13px]">
+                  Fait à BATNA, le {(() => {
+                    const d = selectedMaterials[0]?.purchaseDate;
+                    if (!d) return currentDate;
+                    const date = new Date(d);
+                    return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
+                  })()}
+                </p>
+                <div className="mt-16 mb-1 border-b border-black w-full" />
+                <p className="text-[11px] text-slate-500 mb-5">Signature</p>
+                <p className="font-bold uppercase text-[13px]">{node?.name}</p>
+                <p className="font-semibold text-[13px]">SARL TECHNOCERAM</p>
+              </div>
+            </div>
+    
           </div>
-        </div>
-      </div>
-    );
-  };
+        );
+      };
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (

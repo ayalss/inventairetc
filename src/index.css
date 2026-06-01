@@ -19,7 +19,11 @@
     background: #D1D1D6;
   }
 }
-
+@media print {
+  .printable-area {
+    min-height: unset !important;
+  }
+}
 /* Print Overrides */
 @media print {
 
