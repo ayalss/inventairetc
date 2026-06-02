@@ -46,6 +46,7 @@ const memoryStore = {
   managers:    [...INITIAL_MANAGERS]    as any[],
   subNodes:    [...INITIAL_SUB_NODES]   as any[],
   materials:   [...INITIAL_MATERIALS]   as any[],
+  puces:        [] as any[],
   users: [
     { email: 'ayalounis679@gmail.com', password: 'luxury', role: 'admin' }
   ] as any[]
@@ -110,6 +111,16 @@ async function checkAndInitializeDatabase() {
         purchase_date    VARCHAR(50),
         cost             DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
         notes            TEXT,
+        assigned_node_id VARCHAR(50)    REFERENCES sub_nodes(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS puces (
+        id               VARCHAR(50)    PRIMARY KEY,
+        serial_number    VARCHAR(100)   NOT NULL,
+        phone_number     VARCHAR(50)    NOT NULL,
+        puk_code         VARCHAR(100)   NOT NULL,
+        monthly_credit   DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+        status           VARCHAR(50)    NOT NULL DEFAULT 'Active',
         assigned_node_id VARCHAR(50)    REFERENCES sub_nodes(id) ON DELETE CASCADE
       );
     `);
@@ -237,12 +248,13 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/clean-db', async (req, res) => {
   try {
     if (isDbConnected) {
-      await pool.query('TRUNCATE TABLE materials, sub_nodes, managers, departments RESTART IDENTITY CASCADE;');
+      await pool.query('TRUNCATE TABLE materials, puces, sub_nodes, managers, departments RESTART IDENTITY CASCADE;');
     } else {
       memoryStore.departments = [];
       memoryStore.managers    = [];
       memoryStore.subNodes    = [];
       memoryStore.materials   = [];
+      memoryStore.puces       = [];
     }
     res.json({ status: 'success' });
   } catch (err: any) {
@@ -439,6 +451,7 @@ app.delete('/api/subnodes/:id', async (req, res) => {
     } else {
       memoryStore.subNodes  = memoryStore.subNodes.filter(s => s.id !== id);
       memoryStore.materials = memoryStore.materials.filter(m => m.assignedNodeId !== id);
+      memoryStore.puces     = memoryStore.puces.filter(p => p.assignedNodeId !== id);
     }
     res.json({ success: true, id });
   } catch (err: any) {
@@ -579,6 +592,93 @@ app.delete('/api/materials/:id', async (req, res) => {
       await pool.query('DELETE FROM materials WHERE id = $1', [id]);
     } else {
       memoryStore.materials = memoryStore.materials.filter(m => m.id !== id);
+    }
+    res.json({ success: true, id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- PUCES ---
+app.get('/api/puces', async (req, res) => {
+  try {
+    if (isDbConnected) {
+      const { rows } = await pool.query(`
+        SELECT id, status,
+               serial_number    AS "serialNumber",
+               phone_number     AS "phoneNumber",
+               puk_code         AS "pukCode",
+               monthly_credit   AS "monthlyCredit",
+               assigned_node_id AS "assignedNodeId"
+        FROM puces ORDER BY phone_number ASC
+      `);
+      res.json(rows);
+    } else {
+      res.json(memoryStore.puces);
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/puces', async (req, res) => {
+  const { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, assignedNodeId } = req.body;
+
+  if (!id || !serialNumber || !phoneNumber || !pukCode || !status || !assignedNodeId) {
+    return res.status(400).json({ error: 'Missing required puce fields.' });
+  }
+
+  try {
+    if (isDbConnected) {
+      const nodeCheck = await pool.query('SELECT id FROM sub_nodes WHERE id = $1', [assignedNodeId]);
+      if (nodeCheck.rows.length === 0) {
+        return res.status(400).json({ error: `Sub-node "${assignedNodeId}" does not exist in the database.` });
+      }
+
+      const { rows } = await pool.query(
+        `INSERT INTO puces (
+           id, serial_number, phone_number, puk_code, monthly_credit, status, assigned_node_id
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (id) DO UPDATE SET
+           serial_number=$2, phone_number=$3, puk_code=$4, monthly_credit=$5, status=$6, assigned_node_id=$7
+         RETURNING
+           id, status,
+           serial_number AS "serialNumber",
+           phone_number AS "phoneNumber",
+           puk_code AS "pukCode",
+           monthly_credit AS "monthlyCredit",
+           assigned_node_id AS "assignedNodeId"`,
+        [
+          id,
+          serialNumber,
+          phoneNumber,
+          pukCode,
+          parseFloat(monthlyCredit) || 0,
+          status,
+          assignedNodeId
+        ]
+      );
+      res.json(rows[0]);
+    } else {
+      const idx = memoryStore.puces.findIndex(p => p.id === id);
+      const payload = { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, assignedNodeId };
+      if (idx > -1) memoryStore.puces[idx] = payload;
+      else memoryStore.puces.push(payload);
+      res.json(payload);
+    }
+  } catch (err: any) {
+    console.error('PUCE INSERT ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/puces/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (isDbConnected) {
+      await pool.query('DELETE FROM puces WHERE id = $1', [id]);
+    } else {
+      memoryStore.puces = memoryStore.puces.filter(p => p.id !== id);
     }
     res.json({ success: true, id });
   } catch (err: any) {

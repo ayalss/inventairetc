@@ -336,5 +336,6 @@
   "dept_updated": "Département mis à jour",
   "manager_updated": "Responsable mis à jour",
   "desk_updated": "Bureau mis à jour",
-  "asset_updated": "Équipement mis à jour"
+  "asset_updated": "Équipement mis à jour",
+  "puce_reports": "Rapports de Puces"
 }

@@ -7,7 +7,8 @@ import type {
   Department,
   Manager,
   SubNode,
-  Material
+  Material,
+  Puce
 } from './types';
 import {
   INITIAL_DEPARTMENTS,
@@ -19,6 +20,7 @@ import Sidebar from './components/SideBar';
 import PortalView from './components/PortalView';
 import QrScannerTab from './components/QrScannerTab.tsx';
 import ReportsTab from './components/ReportsTab';
+import PuceReportsTab from './components/PuceReportsTab';
 import ManagementTab from './components/ManagementTab';
 import LoginPage from './components/LoginPage.tsx';
 import { RefreshCw, HelpCircle, UserCheck, ShieldAlert, Heart, Calendar, LogOut } from 'lucide-react';
@@ -42,9 +44,10 @@ export default function App() {
   const [managers,    setManagers]    = useState<Manager[]>([]);
   const [subNodes,    setSubNodes]    = useState<SubNode[]>([]);
   const [materials,   setMaterials]   = useState<Material[]>([]);
+  const [puces,       setPuces]       = useState<Puce[]>([]);
 
   const [selectedDeptId,    setSelectedDeptId]    = useState<string>('');
-  const [selectedUtility,   setSelectedUtility]   = useState<'portal' | 'scanner' | 'management' | 'reports'>('portal');
+  const [selectedUtility,   setSelectedUtility]   = useState<'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports'>('portal');
   const [selectedAssetFromScanner, setSelectedAssetFromScanner] = useState<Material | null>(null);
   const [showResetConfirm,  setShowResetConfirm]  = useState(false);
 
@@ -56,24 +59,27 @@ export default function App() {
       const statusData = await statusRes.json();
       setDbStatus(statusData);
 
-      const [deptRes, mngRes, nodeRes, matRes] = await Promise.all([
+      const [deptRes, mngRes, nodeRes, matRes, puceRes] = await Promise.all([
         fetch('/api/departments'),
         fetch('/api/managers'),
         fetch('/api/subnodes'),
         fetch('/api/materials'),
+        fetch('/api/puces'),
       ]);
 
-      const [depts, mngs, nodes, mats] = await Promise.all([
+      const [depts, mngs, nodes, mats, puceRows] = await Promise.all([
         deptRes.json(),
         mngRes.json(),
         nodeRes.json(),
         matRes.json(),
+        puceRes.json(),
       ]);
 
       setDepartments(Array.isArray(depts) ? depts : []);
       setManagers(   Array.isArray(mngs)  ? mngs  : []);
       setSubNodes(   Array.isArray(nodes) ? nodes : []);
       setMaterials(  Array.isArray(mats)  ? mats  : []);
+      setPuces(      Array.isArray(puceRows) ? puceRows : []);
 
       if (Array.isArray(depts) && depts.length > 0) {
         const exists = depts.some((d: any) => d.id === selectedDeptId);
@@ -104,6 +110,7 @@ export default function App() {
       setManagers([]);
       setSubNodes([]);
       setMaterials([]);
+      setPuces([]);
       setSelectedDeptId('');
       setSelectedUtility('management');
       setSelectedAssetFromScanner(null);
@@ -209,6 +216,7 @@ export default function App() {
     const affectedSubNodeIds = subNodes.filter(n => affectedManagerIds.includes(n.managerId)).map(n => n.id);
     setSubNodes(prev => prev.filter(n => !affectedManagerIds.includes(n.managerId)));
     setMaterials(prev => prev.filter(m => !affectedSubNodeIds.includes(m.assignedNodeId)));
+    setPuces(prev => prev.filter(p => !affectedSubNodeIds.includes(p.assignedNodeId)));
     try {
       await fetch(`/api/departments/${id}`, { method: 'DELETE' });
     } catch (err) {
@@ -260,6 +268,7 @@ export default function App() {
     const affectedSubNodeIds = subNodes.filter(n => n.managerId === id).map(n => n.id);
     setSubNodes(prev => prev.filter(n => n.managerId !== id));
     setMaterials(prev => prev.filter(m => !affectedSubNodeIds.includes(m.assignedNodeId)));
+    setPuces(prev => prev.filter(p => !affectedSubNodeIds.includes(p.assignedNodeId)));
     try {
       await fetch(`/api/managers/${id}`, { method: 'DELETE' });
     } catch (err) {
@@ -309,6 +318,7 @@ export default function App() {
   const handleDeleteSubNode = async (id: string) => {
     setSubNodes(prev => prev.filter(n => n.id !== id));
     setMaterials(prev => prev.filter(m => m.assignedNodeId !== id));
+    setPuces(prev => prev.filter(p => p.assignedNodeId !== id));
     try {
       const res = await fetch(`/api/subnodes/${id}`, { method: 'DELETE' });
       if (!res.ok) {
@@ -369,6 +379,57 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to delete material:', err);
+      await syncDatabaseState();
+    }
+  };
+
+  const handleAddPuce = async (newPuce: Puce) => {
+    try {
+      const res = await fetch('/api/puces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPuce),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`POST /api/puces failed (${res.status}): ${text}`);
+      }
+      const saved = await res.json();
+      setPuces(prev => [...prev, saved]);
+    } catch (err) {
+      console.error('Failed to create puce:', err);
+      await syncDatabaseState();
+    }
+  };
+
+  const handleUpdatePuce = async (id: string, updated: Puce) => {
+    setPuces(prev => prev.map(p => p.id === id ? updated : p));
+    try {
+      const res = await fetch('/api/puces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`POST /api/puces failed (${res.status}): ${text}`);
+      }
+    } catch (err) {
+      console.error('Failed to update puce:', err);
+      await syncDatabaseState();
+    }
+  };
+
+  const handleDeletePuce = async (id: string) => {
+    setPuces(prev => prev.filter(p => p.id !== id));
+    try {
+      const res = await fetch(`/api/puces/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`DELETE /api/puces failed (${res.status}): ${text}`);
+      }
+    } catch (err) {
+      console.error('Failed to delete puce:', err);
       await syncDatabaseState();
     }
   };
@@ -494,6 +555,10 @@ export default function App() {
   onUpdateMaterial={handleUpdateMaterial}
   onUpdateSubNode={handleUpdateSubNode}
   departments={departments}
+  puces={puces}
+  onAddPuce={handleAddPuce}
+  onDeletePuce={handleDeletePuce}
+  onUpdatePuce={handleUpdatePuce}
 />
           ) : selectedUtility === 'portal' ? (
             <div className="flex flex-col items-center justify-center h-96 p-6 border border-dashed border-red-200/50 rounded-3xl bg-white/70 max-w-xl mx-auto text-center shadow-xs">
@@ -524,11 +589,14 @@ export default function App() {
               managers={managers}
               subNodes={subNodes}
               materials={materials}
+              puces={puces}
               onAddDepartment={handleAddDepartment}
               onAddManager={handleAddManager}
               onAddSubNode={handleAddSubNode}
               onAddMaterial={handleAddMaterial}
+              onAddPuce={handleAddPuce}
               onDeleteMaterial={handleDeleteMaterial}
+              onDeletePuce={handleDeletePuce}
               onUpdateDepartment={handleUpdateDepartment}
               onDeleteDepartment={handleDeleteDepartment}
               onUpdateManager={handleUpdateManager}
@@ -536,6 +604,7 @@ export default function App() {
               onUpdateSubNode={handleUpdateSubNode}
               onDeleteSubNode={handleDeleteSubNode}
               onUpdateMaterial={handleUpdateMaterial}
+              onUpdatePuce={handleUpdatePuce}
             />
           )}
 
@@ -543,6 +612,15 @@ export default function App() {
             <ReportsTab
               materials={materials}
               departments={departments}
+            />
+          )}
+
+          {!isLoading && selectedUtility === 'puce_reports' && (
+            <PuceReportsTab
+              puces={puces}
+              departments={departments}
+              subNodes={subNodes}
+              managers={managers}
             />
           )}
         </main>

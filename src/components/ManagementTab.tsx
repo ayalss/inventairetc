@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Department, Manager, SubNode, Material } from '../types';
+import { Department, Manager, SubNode, Material, Puce } from '../types';
 import { generateMaterialCodification } from '../data';
 import { 
   Plus, FolderPlus, UserPlus, Layers, Laptop, Check, AlertCircle, Trash2, 
   Edit, Printer, X, FileText, Search, User, Briefcase, Network, Coins, 
   Users, Cpu, Truck, LayoutList, ClipboardCheck, CreditCard, ChevronDown,
-  Square, CheckSquare, AlertTriangle, Paperclip, FileUp, Eye, Download
+  Square, CheckSquare, AlertTriangle, Paperclip, FileUp, Eye, Download, Smartphone
 } from 'lucide-react';
 
 // ─── Document type for SubNode attachments ────────────────────────────────────
@@ -26,11 +26,14 @@ interface ManagementTabProps {
   managers: Manager[];
   subNodes: SubNode[];
   materials: Material[];
+  puces: Puce[];
   onAddDepartment: (dept: Department) => void;
   onAddManager: (manager: Manager) => void;
   onAddSubNode: (node: SubNode) => void;
   onAddMaterial: (material: Material) => void;
+  onAddPuce: (puce: Puce) => void;
   onDeleteMaterial: (id: string) => void;
+  onDeletePuce: (id: string) => void;
   onUpdateDepartment: (id: string, updated: Department) => void;
   onDeleteDepartment: (id: string) => void;
   onUpdateManager: (id: string, updated: Manager) => void;
@@ -38,25 +41,26 @@ interface ManagementTabProps {
   onUpdateSubNode: (id: string, updated: SubNode) => void;
   onDeleteSubNode: (id: string) => void;
   onUpdateMaterial: (id: string, updated: Material) => void;
+  onUpdatePuce: (id: string, updated: Puce) => void;
 }
 
 export default function ManagementTab({
-  departments, managers, subNodes, materials,
-  onAddDepartment, onAddManager, onAddSubNode, onAddMaterial,
-  onDeleteMaterial, onUpdateDepartment, onDeleteDepartment,
-  onUpdateManager, onDeleteManager, onUpdateSubNode, onDeleteSubNode, onUpdateMaterial
+  departments, managers, subNodes, materials, puces,
+  onAddDepartment, onAddManager, onAddSubNode, onAddMaterial, onAddPuce,
+  onDeleteMaterial, onDeletePuce, onUpdateDepartment, onDeleteDepartment,
+  onUpdateManager, onDeleteManager, onUpdateSubNode, onDeleteSubNode, onUpdateMaterial, onUpdatePuce
 }: ManagementTabProps) {
   const { t } = useTranslation();
 
-  const [activeForm, setActiveForm] = useState<'material' | 'subnode' | 'manager' | 'dept'>('material');
+  const [activeForm, setActiveForm] = useState<'material' | 'puce' | 'subnode' | 'manager' | 'dept'>('material');
   const [showSuccessToast, setShowSuccessToast] = useState<string | null>(null);
 
   // Database Inspector
-  const [inspectorTab, setInspectorTab] = useState<'materials' | 'subnodes' | 'managers' | 'depts'>('materials');
+  const [inspectorTab, setInspectorTab] = useState<'materials' | 'puces' | 'subnodes' | 'managers' | 'depts'>('materials');
   const [inspectorSearch, setInspectorSearch] = useState('');
 
   // Edit modal
-  const [editingItem, setEditingItem] = useState<{ type: 'material' | 'subnode' | 'manager' | 'dept'; id: string; data: any } | null>(null);
+  const [editingItem, setEditingItem] = useState<{ type: 'material' | 'puce' | 'subnode' | 'manager' | 'dept'; id: string; data: any } | null>(null);
 
   // Documents modal
   const [docsModalNode, setDocsModalNode] = useState<SubNodeWithDocs | null>(null);
@@ -100,6 +104,13 @@ export default function ManagementTab({
   const [matDate,   setMatDate]   = useState('');
   const [matNodeId, setMatNodeId] = useState(subNodes[0]?.id || '');
   const [matNotes,  setMatNotes]  = useState('');
+
+  const [puceSerial, setPuceSerial] = useState('');
+  const [pucePhone,  setPucePhone]  = useState('');
+  const [pucePuk,    setPucePuk]    = useState('');
+  const [puceCredit, setPuceCredit] = useState('');
+  const [puceStatus, setPuceStatus] = useState<'Active' | 'Suspended'>('Active');
+  const [puceNodeId, setPuceNodeId] = useState(subNodes[0]?.id || '');
 
   const triggerSuccess = (msg: string) => {
     setShowSuccessToast(msg);
@@ -181,6 +192,29 @@ export default function ManagementTab({
     setMatNodeId(subNodes[0]?.id || '');
   };
 
+  const handlePuceSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!puceSerial || !pucePhone || !pucePuk) return;
+    const activeNodeId = puceNodeId || subNodes[0]?.id;
+    if (!activeNodeId) { alert('Please select a valid infrastructure office sub-node location.'); return; }
+    const targetNode = subNodes.find(n => n.id === activeNodeId);
+    if (!targetNode) { alert('Selected office location node not found.'); return; }
+    const newPuce: Puce = {
+      id: `puce-${Date.now()}`,
+      serialNumber: puceSerial.trim(),
+      phoneNumber: pucePhone.trim(),
+      pukCode: pucePuk.trim(),
+      monthlyCredit: Number(puceCredit) || 0,
+      status: puceStatus,
+      assignedNodeId: activeNodeId
+    };
+    onAddPuce(newPuce);
+    triggerSuccess(`Puce ${newPuce.phoneNumber} registered under ${targetNode.name}`);
+    setPuceSerial(''); setPucePhone(''); setPucePuk(''); setPuceCredit('');
+    setPuceStatus('Active');
+    setPuceNodeId(subNodes[0]?.id || '');
+  };
+
   const handleEditSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
@@ -188,6 +222,7 @@ export default function ManagementTab({
     if (type === 'dept')     { onUpdateDepartment(id, data); triggerSuccess(`Department "${data.name}" updated`); }
     if (type === 'manager')  { onUpdateManager(id, data);   triggerSuccess(`Manager "${data.name}" updated`); }
     if (type === 'subnode')  { onUpdateSubNode(id, data);   triggerSuccess(`Desk "${data.name}" updated`); }
+    if (type === 'puce')     { onUpdatePuce(id, data);      triggerSuccess(`Puce "${data.phoneNumber}" updated`); }
     if (type === 'material') {
       const targetNode = subNodes.find(n => n.id === data.assignedNodeId);
       if (targetNode) {
@@ -207,6 +242,7 @@ export default function ManagementTab({
 
   // ─── Search filters ────────────────────────────────────────────────────────
   const getFilteredMaterials   = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return materials; return materials.filter(m => m.name.toLowerCase().includes(q) || m.codification.toLowerCase().includes(q) || m.serialNumber.toLowerCase().includes(q) || m.notes?.toLowerCase().includes(q)); };
+  const getFilteredPuces       = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return puces; return puces.filter(p => p.serialNumber.toLowerCase().includes(q) || p.phoneNumber.toLowerCase().includes(q) || p.pukCode.toLowerCase().includes(q) || p.status.toLowerCase().includes(q)); };
   const getFilteredSubNodes    = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return subNodes; return subNodes.filter(s => s.name.toLowerCase().includes(q) || s.officeNum.toLowerCase().includes(q) || s.type.toLowerCase().includes(q)); };
   const getFilteredManagers    = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return managers; return managers.filter(m => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || m.role.toLowerCase().includes(q)); };
   const getFilteredDepartments = () => { const q = inspectorSearch.toLowerCase().trim(); if (!q) return departments; return departments.filter(d => d.name.toLowerCase().includes(q) || d.deptNum.toLowerCase().includes(q)); };
@@ -384,9 +420,10 @@ export default function ManagementTab({
       )}
 
       {/* ── Form tab selectors ── */}
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-lg mx-auto border border-[#D2D2D7]/40">
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-3xl mx-auto border border-[#D2D2D7]/40">
         {[
           { id: 'material', label: '+ IT Material', icon: Laptop },
+          { id: 'puce',     label: '+ Puce',        icon: Smartphone },
           { id: 'subnode',  label: '+ Office Desk', icon: Layers },
           { id: 'manager',  label: '+ New Manager', icon: UserPlus },
           { id: 'dept',     label: '+ Department',  icon: FolderPlus }
@@ -497,6 +534,74 @@ export default function ManagementTab({
           )}
 
           {/* B. SUBNODE FORM — with Role + CIN (from File 1) */}
+          {activeForm === 'puce' && (
+            <form onSubmit={handlePuceSubmit} className="space-y-4">
+              <div className="border-b border-slate-150 pb-3">
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><Smartphone className="text-[#FF1E1E] w-4.5 h-4.5" />Add New Puce</h4>
+                <p className="text-[11px] text-[#86868B] mt-1">Registers SIM cards under the same office, desk, or person nodes.</p>
+              </div>
+              {subNodes.length === 0 ? (
+                <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                  <div className="text-xs text-rose-800"><p className="font-bold">No Office Sub-Nodes Found</p><p className="mt-1">Create a Desk/Office card first.</p></div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Infrastructure Location (Office/Desk)</label>
+                    <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                      value={puceNodeId} onChange={(e) => setPuceNodeId(e.target.value)}>
+                      {subNodes.map((node) => {
+                        const mng = managers.find(m => m.id === node.managerId);
+                        return <option key={node.id} value={node.id}>{node.name} (Office {node.officeNum} - {mng ? mng.name : 'Unknown'})</option>;
+                      })}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">S/N</label>
+                      <input type="text" required placeholder="e.g. SIM-000123"
+                        className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                        value={puceSerial} onChange={(e) => setPuceSerial(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">N tel</label>
+                      <input type="tel" required placeholder="e.g. 0550 00 00 00"
+                        className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                        value={pucePhone} onChange={(e) => setPucePhone(e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Code PUK</label>
+                    <input type="text" required placeholder="e.g. 12345678"
+                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                      value={pucePuk} onChange={(e) => setPucePuk(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Credit par mois (DA)</label>
+                      <input type="number" placeholder="e.g. 1000"
+                        className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                        value={puceCredit} onChange={(e) => setPuceCredit(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Etat</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                        value={puceStatus} onChange={(e) => setPuceStatus(e.target.value as any)}>
+                        <option value="Active">Actif</option>
+                        <option value="Suspended">Suspendu</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit"
+                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2">
+                    <Plus className="w-4 h-4 text-[#FF1E1E]" />Register Puce
+                  </button>
+                </>
+              )}
+            </form>
+          )}
+
           {activeForm === 'subnode' && (
             <form onSubmit={handleSubNodeSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
@@ -661,6 +766,7 @@ export default function ManagementTab({
             <div className="flex flex-wrap bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs shrink-0 select-none">
               {[
                 { id: 'materials', label: `${t('assets')} (${materials.length})` },
+                { id: 'puces',     label: `Puces (${puces.length})` },
                 { id: 'subnodes',  label: `${t('desks')} (${subNodes.length})` },
                 { id: 'managers',  label: `${t('heads')} (${managers.length})` },
                 { id: 'depts',     label: `${t('depts')} (${departments.length})` },
@@ -761,10 +867,47 @@ export default function ManagementTab({
             )}
 
             {/* SUBNODES — with document buttons */}
+            {inspectorTab === 'puces' && (
+              getFilteredPuces().length > 0 ? getFilteredPuces().map((p) => {
+                const node = subNodes.find(n => n.id === p.assignedNodeId);
+                return (
+                  <div key={p.id}
+                    className="flex justify-between items-center p-3.5 rounded-2xl border transition-colors gap-3 bg-slate-50 border-[#D2D2D7]/40 hover:bg-slate-100/40">
+                    <div className="shrink-0 w-8 h-8 rounded-xl bg-[#FF1E1E]/10 text-[#FF1E1E] flex items-center justify-center">
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div className="truncate min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-slate-950 text-xs tracking-wide">{p.phoneNumber}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${p.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF9500]/10 text-[#FF9500]'}`}>{p.status === 'Active' ? 'Actif' : 'Suspendu'}</span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-800 block truncate mt-0.5">
+                        {node ? node.name : 'Unknown Desk'} - Credit/mois: {Number(p.monthlyCredit || 0).toLocaleString()} DA
+                      </span>
+                      <span className="text-[10px] text-[#86868B] block truncate">
+                        S/N: {p.serialNumber} - PUK: {p.pukCode}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button onClick={() => setEditingItem({ type: 'puce', id: p.id, data: { ...p } })}
+                        className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer">
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => { if (confirm(`Delete puce ${p.phoneNumber}?`)) { onDeletePuce(p.id); triggerSuccess(`Deleted puce "${p.phoneNumber}"`); } }}
+                        className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              }) : <p className="text-xs text-[#86868B] text-center py-10">No matching puces found.</p>
+            )}
+
             {inspectorTab === 'subnodes' && (
               getFilteredSubNodes().length > 0 ? getFilteredSubNodes().map((s: any) => {
                 const mng = managers.find(man => man.id === s.managerId);
                 const count = materials.filter(m => m.assignedNodeId === s.id).length;
+                const puceCount = puces.filter(p => p.assignedNodeId === s.id).length;
                 const docCount = (s.documents || []).length;
                 return (
                   <div key={s.id} className="flex justify-between items-center p-3.5 rounded-2xl bg-slate-50 border border-[#D2D2D7]/40 hover:bg-slate-100/40 transition-colors">
@@ -781,6 +924,7 @@ export default function ManagementTab({
                       </span>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-[9px] font-extrabold text-teal-600 uppercase tracking-wide">{count} {count === 1 ? 'allocated asset' : 'allocated assets'}</span>
+                        <span className="text-[9px] font-extrabold text-[#FF1E1E] uppercase tracking-wide">{puceCount} {puceCount === 1 ? 'puce' : 'puces'}</span>
                         {docCount > 0 && (
                           <span className="text-[9px] font-extrabold text-indigo-500 uppercase tracking-wide flex items-center gap-0.5">
                             <Paperclip className="w-2.5 h-2.5" />{docCount} doc{docCount > 1 ? 's' : ''}
@@ -803,7 +947,7 @@ export default function ManagementTab({
                       </button>
                       <button onClick={() => setEditingItem({ type: 'subnode', id: s.id, data: { ...s } })}
                         className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => { if (confirm(`Delete desk node? (${count} assets affected)`)) { onDeleteSubNode(s.id); triggerSuccess('Deleted desk node'); } }}
+                      <button onClick={() => { if (confirm(`Delete desk node? (${count} assets and ${puceCount} puces affected)`)) { onDeleteSubNode(s.id); triggerSuccess('Deleted desk node'); } }}
                         className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
@@ -1026,6 +1170,37 @@ export default function ManagementTab({
                       onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, managerId: e.target.value } })}>
                       {managers.map(m => <option key={m.id} value={m.id}>{m.name} ({m.company} - {m.role})</option>)}
                     </select></div>
+                </div>
+              )}
+              {editingItem.type === 'puce' && (
+                <div className="space-y-3">
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Location Node</label>
+                    <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.assignedNodeId}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, assignedNodeId: e.target.value } })}>
+                      {subNodes.map(s => <option key={s.id} value={s.id}>{s.name} (office {s.officeNum})</option>)}
+                    </select></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">S/N</label>
+                      <input type="text" required className="font-mono w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.serialNumber}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, serialNumber: e.target.value } })} /></div>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">N tel</label>
+                      <input type="tel" required className="font-mono w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.phoneNumber}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, phoneNumber: e.target.value } })} /></div>
+                  </div>
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Code PUK</label>
+                    <input type="text" required className="font-mono w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.pukCode}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, pukCode: e.target.value } })} /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Credit par mois (DA)</label>
+                      <input type="number" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.monthlyCredit}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, monthlyCredit: Number(e.target.value) } })} /></div>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Etat</label>
+                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.status}
+                        onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, status: e.target.value } })}>
+                        <option value="Active">Actif</option>
+                        <option value="Suspended">Suspendu</option>
+                      </select></div>
+                  </div>
                 </div>
               )}
               {editingItem.type === 'material' && (

@@ -2,14 +2,14 @@ import React from 'react';
 import { Department } from '../types';
 import { useTranslation } from 'react-i18next';
 import * as LucideIcons from 'lucide-react';
-import { Network, Coins, Users, Cpu, Truck, Briefcase, Camera, Heart, Settings, FileSpreadsheet, ShieldAlert, Globe2 } from 'lucide-react';
+import { Network, Coins, Users, Cpu, Truck, Briefcase, Camera, Heart, Settings, FileSpreadsheet, ShieldAlert, Globe2, Smartphone } from 'lucide-react';
 
 interface SidebarProps {
   departments: Department[];
   selectedDeptId: string;
   onSelectDept: (id: string) => void;
-  selectedUtility: 'portal' | 'scanner' | 'management' | 'reports';
-  onSelectUtility: (utility: 'portal' | 'scanner' | 'management' | 'reports') => void;
+  selectedUtility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports';
+  onSelectUtility: (utility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports') => void;
 }
 
 export default function Sidebar({
@@ -99,6 +99,19 @@ export default function Sidebar({
         >
           <FileSpreadsheet className={`w-4 h-4 shrink-0 ${selectedUtility === 'reports' ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
           <span>{t('inventory_reports')}</span>
+        </button>
+
+        {/* 4. Puce Reports Tab */}
+        <button
+          onClick={() => onSelectUtility('puce_reports')}
+          className={`w-full py-2 px-3 rounded-md text-sm font-medium tracking-wide transition-all duration-150 flex items-center gap-2.5 cursor-pointer ${
+            selectedUtility === 'puce_reports'
+              ? 'bg-[#FF1E1E]/8 text-[#FF1E1E] font-semibold border border-[#FF1E1E]/15 shadow-sm'
+              : 'hover:bg-[#F5F5F7] text-[#424245] border border-transparent hover:text-[#1D1D1F]'
+          }`}
+        >
+          <Smartphone className={`w-4 h-4 shrink-0 ${selectedUtility === 'puce_reports' ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
+          <span>{t('puce_reports')}</span>
         </button>
       </div>
 

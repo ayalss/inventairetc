@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Department, Manager, SubNode, Material } from '../types';
+import { Department, Manager, SubNode, Material, Puce } from '../types';
 import { 
   MapPin, Layers, Server, Laptop, Plus, HelpCircle, UserCheck, 
   ChevronRight, User, X, Check, Mail, Info, Settings, ShieldAlert,
-  FileText, Edit, Trash2, ClipboardCheck, Printer
+  FileText, Edit, Trash2, ClipboardCheck, Printer, Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MaterialQrCard from './MaterialQrCard';
@@ -15,14 +15,18 @@ interface PortalViewProps {
   managers: Manager[];
   subNodes: SubNode[];
   materials: Material[];
+  puces: Puce[];
   onSelectMaterial: (m: Material) => void;
   selectedAssetFromScanner?: Material | null;
   onClearSelectedAssetScanner?: () => void;
   onAddManager: (manager: Manager) => void;
   onAddSubNode: (subnode: SubNode) => void;
   onAddMaterial: (material: Material) => void;
+  onAddPuce: (puce: Puce) => void;
   onDeleteMaterial: (id: string) => void;
+  onDeletePuce: (id: string) => void;
   onUpdateMaterial: (id: string, updated: Material) => void;
+  onUpdatePuce: (id: string, updated: Puce) => void;
   onUpdateSubNode: (id: string, updated: SubNode) => void;
   departments: Department[];
 }
@@ -32,14 +36,18 @@ export default function PortalView({
   managers,
   subNodes,
   materials,
+  puces,
   onSelectMaterial,
   selectedAssetFromScanner,
   onClearSelectedAssetScanner,
   onAddManager,
   onAddSubNode,
   onAddMaterial,
+  onAddPuce,
   onDeleteMaterial,
+  onDeletePuce,
   onUpdateMaterial,
+  onUpdatePuce,
   onUpdateSubNode,
   departments
 }: PortalViewProps) {
@@ -110,13 +118,27 @@ export default function PortalView({
     return materials.filter(m => m.assignedNodeId === activeSubNode.id);
   }, [materials, activeSubNode, activeManager, activeSubNodes]);
 
+  const nodePuces = useMemo(() => {
+    if (!activeSubNode) return [];
+
+    const isManagerNode = activeSubNode.id === `node-${activeManager?.id.replace('mng-', '')}`;
+    if (isManagerNode) {
+      const activeNodeIds = activeSubNodes.map(node => node.id);
+      return puces.filter(p => activeNodeIds.includes(p.assignedNodeId));
+    }
+
+    return puces.filter(p => p.assignedNodeId === activeSubNode.id);
+  }, [puces, activeSubNode, activeManager, activeSubNodes]);
+
   const [modalMaterial, setModalMaterial] = useState<Material | null>(null);
-  const [activeCreationType, setActiveCreationType] = useState<'manager' | 'subnode' | 'material' | null>(null);
+  const [activeCreationType, setActiveCreationType] = useState<'manager' | 'subnode' | 'material' | 'puce' | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [editingPuce, setEditingPuce] = useState<Puce | null>(null);
 
   // ── Décharge state ──
   const [dechargePreviewMaterials, setDechargePreviewMaterials] = useState<Material[] | null>(null);
+  const [dechargePreviewPuces, setDechargePreviewPuces] = useState<Puce[] | null>(null);
 
   React.useEffect(() => {
     if (selectedAssetFromScanner) {
@@ -142,6 +164,12 @@ export default function PortalView({
   const [matCost, setMatCost] = useState('');
   const [matDate, setMatDate] = useState('');
   const [matNotes, setMatNotes] = useState('');
+
+  const [puceSerial, setPuceSerial] = useState('');
+  const [pucePhone, setPucePhone] = useState('');
+  const [pucePuk, setPucePuk] = useState('');
+  const [puceCredit, setPuceCredit] = useState('');
+  const [puceStatus, setPuceStatus] = useState<'Active' | 'Suspended'>('Active');
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -242,12 +270,45 @@ export default function PortalView({
     setMatStatus('Active');
   };
 
+  const handleAddPuceSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!puceSerial || !pucePhone || !pucePuk || !activeSubNode) return;
+
+    const newPuce: Puce = {
+      id: `puce-${Date.now()}`,
+      serialNumber: puceSerial.trim(),
+      phoneNumber: pucePhone.trim(),
+      pukCode: pucePuk.trim(),
+      monthlyCredit: Number(puceCredit) || 0,
+      status: puceStatus,
+      assignedNodeId: activeSubNode.id
+    };
+
+    onAddPuce(newPuce);
+    triggerToast(`Puce ${newPuce.phoneNumber} registered under ${activeSubNode.name}!`);
+    setActiveCreationType(null);
+
+    setPuceSerial('');
+    setPucePhone('');
+    setPucePuk('');
+    setPuceCredit('');
+    setPuceStatus('Active');
+  };
+
   const handleEditMaterialSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMaterial) return;
     onUpdateMaterial(editingMaterial.id, editingMaterial);
     triggerToast(`${t('asset_updated_successfully')}`);
     setEditingMaterial(null);
+  };
+
+  const handleEditPuceSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPuce) return;
+    onUpdatePuce(editingPuce.id, editingPuce);
+    triggerToast('Puce updated successfully');
+    setEditingPuce(null);
   };
 
   const getSubNodeIcon = (type: string) => {
@@ -504,6 +565,9 @@ export default function PortalView({
                   const itemsCount = isMngNode
                     ? materials.filter(m => departmentNodeIds.includes(m.assignedNodeId)).length
                     : materials.filter(m => m.assignedNodeId === node.id).length;
+                  const pucesCount = isMngNode
+                    ? puces.filter(p => departmentNodeIds.includes(p.assignedNodeId)).length
+                    : puces.filter(p => p.assignedNodeId === node.id).length;
                   const isSelected = activeSubNode && activeSubNode.id === node.id;
 
                   return (
@@ -558,6 +622,13 @@ export default function PortalView({
                         }`}>
                           {itemsCount} {itemsCount === 1 ? t('asset_count') : t('assets_count')}
                         </span>
+                        <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded ${
+                          isSelected
+                            ? isMngNode ? 'bg-[#FF1E1E]/20 text-[#FF1E1E]' : 'bg-slate-900/15 text-slate-800'
+                            : 'bg-red-50 text-[#FF1E1E]'
+                        }`}>
+                          {pucesCount} puce{pucesCount === 1 ? '' : 's'}
+                        </span>
                         <ChevronRight className={`w-3.5 h-3.5 text-[#86868B] transition-transform ${
                           isSelected ? 'translate-x-0.5' : 'group-hover:translate-x-0.5'
                         }`} />
@@ -587,6 +658,21 @@ export default function PortalView({
                   >
                     <Plus className="w-2.5 h-2.5" />
                     <span>{t('add_asset')}</span>
+                  </button>
+                )}
+                {activeSubNode && (
+                  <button
+                    onClick={() => {
+                      if (activeSubNode.id === `node-${activeManager?.id.replace('mng-', '')}`) {
+                        alert(t('please_select_specific_desk'));
+                        return;
+                      }
+                      setActiveCreationType('puce');
+                    }}
+                    className="px-2 py-0.5 bg-slate-900/10 hover:bg-slate-900/15 border border-slate-900/20 rounded-md text-[9px] font-bold text-slate-800 transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-2.5 h-2.5" />
+                    <span>Add Puce</span>
                   </button>
                 )}
                 {activeSubNode && (
@@ -720,6 +806,107 @@ export default function PortalView({
                 </div>
               )}
             </div>
+
+            <div className="bg-white rounded-2xl border border-[#D2D2D7] shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#F5F5F7] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-[#FF1E1E]" />
+                  <span className="text-[11px] font-black tracking-wider text-slate-900 uppercase">Puces</span>
+                </div>
+                {activeSubNode && activeSubNode.id !== `node-${activeManager?.id.replace('mng-', '')}` && (
+                  <button
+                    onClick={() => setActiveCreationType('puce')}
+                    className="px-2.5 py-1 bg-[#FF1E1E]/10 hover:bg-[#FF1E1E]/15 border border-[#FF1E1E]/20 rounded-lg text-[10px] font-bold text-[#FF1E1E] transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add Puce
+                  </button>
+                )}
+              </div>
+              {!activeSubNode ? (
+                <div className="text-center py-8 text-[#86868B] text-xs">
+                  {t('select_card_to_view_inventory')}
+                </div>
+              ) : nodePuces.length === 0 ? (
+                <div className="p-8 text-center text-[#86868B] text-xs space-y-3">
+                  <Smartphone className="w-8 h-8 mx-auto text-[#86868B]/35" />
+                  <p className="font-bold text-[#1D1D1F]">No puces allocated</p>
+                  {activeSubNode.id !== `node-${activeManager?.id.replace('mng-', '')}` && (
+                    <button
+                      onClick={() => setActiveCreationType('puce')}
+                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-[10px] mx-auto flex items-center gap-1 shadow-xs cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 text-[#FF1E1E]" />
+                      Allocate Puce
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="divide-y divide-[#F5F5F7]">
+                  {nodePuces.map((puce) => {
+                    const puceOwner = activeSubNodes.find(node => node.id === puce.assignedNodeId);
+                    return (
+                      <div key={puce.id} className="p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:bg-[#F5F5F7]/50 transition-colors">
+                        <div className="space-y-1.5 min-w-0 flex-1">
+                          <div className="flex items-center flex-wrap gap-2">
+                            <span className="font-mono font-bold text-[#1D1D1F] tracking-wide text-xs">{puce.phoneNumber}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                              puce.status === 'Active' ? 'bg-[#34C759]/11 text-[#34C759]' : 'bg-[#FF9500]/11 text-[#FF9500]'
+                            }`}>
+                              {puce.status === 'Active' ? 'Actif' : 'Suspendu'}
+                            </span>
+                            {puceOwner && (
+                              <span className="inline-flex items-center gap-1 bg-[#F5F5F7] text-[#86868B] text-[9px] font-semibold px-2 py-0.5 rounded-full border border-[#D2D2D7]/30">
+                                <User className="w-2.5 h-2.5" />
+                                {puceOwner.name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3.5 text-[10px] text-[#86868B] font-mono">
+                            <span>S/N: {puce.serialNumber}</span>
+                            <span>-</span>
+                            <span>PUK: {puce.pukCode}</span>
+                            <span>-</span>
+                            <span>Credit: DA{Number(puce.monthlyCredit || 0).toLocaleString()}/mois</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 self-start">
+                          <button
+                            onClick={() => setEditingPuce({ ...puce })}
+                            className="p-1.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-[#D2D2D7] rounded-lg transition-all cursor-pointer"
+                            title="Edit Puce"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              if (confirm(`Delete puce "${puce.phoneNumber}"?`)) {
+                                onDeletePuce(puce.id);
+                                triggerToast(`Puce "${puce.phoneNumber}" removed.`);
+                              }
+                            }}
+                            className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-[#D2D2D7] rounded-lg transition-all cursor-pointer"
+                            title="Delete Puce"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          
+                          {/* ── Décharge button ── */}
+                          <button
+                            onClick={() => setDechargePreviewPuces([puce])}
+                            className="p-1.5 bg-white text-slate-500 hover:text-[#FF1E1E] hover:bg-red-50 border border-[#D2D2D7] rounded-lg transition-all cursor-pointer"
+                            title="Bon de Décharge"
+                          >
+                            <ClipboardCheck className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -748,11 +935,13 @@ export default function PortalView({
                       {activeCreationType === 'manager' && t('quick_appoint_manager')}
                       {activeCreationType === 'subnode' && t('quick_add_office_desk')}
                       {activeCreationType === 'material' && t('quick_catalog_hardware')}
+                      {activeCreationType === 'puce' && 'Quick Register Puce'}
                     </h3>
                     <p className="text-[10.5px] text-[#86868B] mt-0.5">
                       {activeCreationType === 'manager' && `${t('appoint_responsible_supervisor')} ${selectedDept.name}`}
                       {activeCreationType === 'subnode' && `${t('structural_element_under')} ${activeManager?.name}`}
                       {activeCreationType === 'material' && `${t('individual_it_device_for_desk')} "${activeSubNode?.name}"`}
+                      {activeCreationType === 'puce' && `SIM card for "${activeSubNode?.name}"`}
                     </p>
                   </div>
                   <button onClick={() => setActiveCreationType(null)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-all cursor-pointer">
@@ -944,6 +1133,61 @@ export default function PortalView({
                     </button>
                   </form>
                 )}
+
+                {/* Puce Form */}
+                {activeCreationType === 'puce' && activeSubNode && (
+                  <form onSubmit={handleAddPuceSubmit} className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">S/N</label>
+                      <input type="text" required placeholder="e.g. SIM-000123"
+                        className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                        value={puceSerial} onChange={(e) => setPuceSerial(e.target.value)} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">N tel</label>
+                        <input type="tel" required placeholder="0550 00 00 00"
+                          className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none font-mono"
+                          value={pucePhone} onChange={(e) => setPucePhone(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Code PUK</label>
+                        <input type="text" required placeholder="12345678"
+                          className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none font-mono"
+                          value={pucePuk} onChange={(e) => setPucePuk(e.target.value)} />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Credit par mois (DA)</label>
+                        <input type="number" placeholder="1000"
+                          className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none"
+                          value={puceCredit} onChange={(e) => setPuceCredit(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Etat</label>
+                        <select className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none cursor-pointer"
+                          value={puceStatus} onChange={(e) => setPuceStatus(e.target.value as any)}>
+                          <option value="Active">Actif</option>
+                          <option value="Suspended">Suspendu</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-rose-50/50 border border-rose-100 rounded-xl">
+                      <p className="text-[10px] text-[#FF1E1E]">
+                        This puce will be assigned to <strong>{activeSubNode.name}</strong> (office {activeSubNode.officeNum}).
+                      </p>
+                    </div>
+
+                    <button type="submit" className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                      <Plus className="w-4 h-4 text-[#FF1E1E]" />
+                      Register Puce
+                    </button>
+                  </form>
+                )}
               </motion.div>
             </div>
           </div>
@@ -1079,6 +1323,100 @@ export default function PortalView({
         )}
       </AnimatePresence>
 
+      {/* ════════ EDIT PUCE MODAL ════════ */}
+      <AnimatePresence>
+        {editingPuce && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingPuce(null)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs"
+            />
+            <div className="flex min-h-screen items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                className="bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 w-full max-w-md relative text-slate-800"
+              >
+                <div className="flex justify-between items-start border-b border-slate-100 pb-3 mb-4">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-950 uppercase tracking-widest flex items-center gap-2">
+                      <Edit className="w-4 h-4 text-indigo-500" />
+                      Edit Puce
+                    </h3>
+                    <p className="text-[10.5px] text-[#86868B] mt-0.5 font-mono">{editingPuce.phoneNumber}</p>
+                  </div>
+                  <button onClick={() => setEditingPuce(null)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-all cursor-pointer">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleEditPuceSave} className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">S/N</label>
+                    <input type="text" required
+                      className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400 font-mono"
+                      value={editingPuce.serialNumber}
+                      onChange={(e) => setEditingPuce({ ...editingPuce, serialNumber: e.target.value })} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">N tel</label>
+                      <input type="tel" required
+                        className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 rounded-lg focus:outline-none font-mono"
+                        value={editingPuce.phoneNumber}
+                        onChange={(e) => setEditingPuce({ ...editingPuce, phoneNumber: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Code PUK</label>
+                      <input type="text" required
+                        className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 rounded-lg focus:outline-none font-mono"
+                        value={editingPuce.pukCode}
+                        onChange={(e) => setEditingPuce({ ...editingPuce, pukCode: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Credit/mois (DA)</label>
+                      <input type="number"
+                        className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 rounded-lg focus:outline-none"
+                        value={editingPuce.monthlyCredit}
+                        onChange={(e) => setEditingPuce({ ...editingPuce, monthlyCredit: Number(e.target.value) })} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Etat</label>
+                      <select
+                        className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 rounded-lg focus:outline-none cursor-pointer"
+                        value={editingPuce.status}
+                        onChange={(e) => setEditingPuce({ ...editingPuce, status: e.target.value as any })}>
+                        <option value="Active">Actif</option>
+                        <option value="Suspended">Suspendu</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onClick={() => setEditingPuce(null)}
+                      className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all cursor-pointer">
+                      Cancel
+                    </button>
+                    <button type="submit"
+                      className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer uppercase tracking-wider">
+                      Save Changes
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* ════════ QR MODAL ════════ */}
       <AnimatePresence>
         {modalMaterial && (
@@ -1137,6 +1475,199 @@ export default function PortalView({
               </div>
               <div className="flex-1 overflow-y-auto print:overflow-visible">
                 {renderDechargeDocument(dechargePreviewMaterials)}
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ════════ DÉCHARGE PREVIEW MODAL FOR PUCES ════════ */}
+      <AnimatePresence>
+        {dechargePreviewPuces && (
+          <div className="fixed inset-0 bg-[#1D1D1F]/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full p-8 my-8 relative flex flex-col max-h-[92vh]">
+              <div className="flex items-center justify-between border-b border-slate-150 pb-4 mb-6 select-none shrink-0 print:hidden">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="w-5 h-5 text-[#FF1E1E]" />
+                  <div>
+                    <h3 className="text-sm font-black text-slate-950 uppercase tracking-widest">Bon de Décharge — Puces SIM</h3>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {dechargePreviewPuces.length} puce(s) • Bénéficiaire :{" "}
+                      {(subNodes.find(n => n.id === dechargePreviewPuces[0]?.assignedNodeId) as any)?.name || '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { document.title = "BON_DE_DECHARGE_PUCES"; window.print(); }}
+                    className="px-4 py-2 bg-[#FF1E1E] hover:bg-[#E01B1B] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" /><span>Imprimer (Ctrl+P)</span>
+                  </button>
+                  <button
+                    onClick={() => setDechargePreviewPuces(null)}
+                    className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto print:overflow-visible">
+                {/* Puce Décharge Document */}
+                <div className="printable-area bg-white text-black w-[210mm] h-[297mm] mx-auto px-[20mm] py-[14mm] font-sans text-[12.5px] leading-[1.5] print:w-[210mm] print:h-[297mm] box-border flex flex-col overflow-hidden">
+  
+  {/* ── Header ── */}
+  <div>
+    <div className="flex items-start gap-4">
+      <img
+        src="/tc.jpg"
+        alt="TECHNOCERAM"
+        className="w-14 object-contain"
+      />
+      <h1 className="font-black text-[20px] leading-none mt-1">
+        TECHNOCERAM
+      </h1>
+    </div>
+
+    <div className="border-b-[3px] border-red-600 mt-5" />
+
+    <p className="font-semibold text-[13px] mt-3">
+      N° : ______ /2026
+    </p>
+  </div>
+
+  {/* ── Title ── */}
+  <div className="mt-15 text-center">
+    <h2 className="font-black text-[18px]">
+      Bon de Décharge pour Carte SIM
+    </h2>
+  </div>
+
+  {/* ── Beneficiary Info ── */}
+  {(() => {
+    const node = subNodes.find(
+      n => n.id === dechargePreviewPuces[0]?.assignedNodeId
+    ) as any;
+
+    return (
+      <>
+        {/* ── Intro ── */}
+        <div className="mt-15 text-[13px] leading-[1.8]">
+          <p>
+            Je soussigné(e),{" "}
+            <strong>
+              {node?.name || "________________"}
+            </strong>
+            ,{" "}
+            <strong>
+              {node?.role || "________________"}
+            </strong>
+            {" "}de la SARL TECHNOCERAM, déclare par la présente
+            avoir reçu la carte SIM suivante :
+          </p>
+        </div>
+
+        {/* ── SIM Information ── */}
+        <div className="mt-6 text-[13px] leading-[1.9] pl-6">
+          {dechargePreviewPuces.map((puce) => (
+            <div key={puce.id} className="space-y-1">
+              <p>
+                <strong>Opérateur : OOREDOO</strong>{" "}
+                
+              </p>
+
+              <p>
+                <strong>Numéro de la ligne :</strong>{" "}
+                {puce.phoneNumber || "________________"}
+              </p>
+
+              {puce.serialNumber && (
+                <p>
+                  <strong>Numéro de série :</strong>{" "}
+                  {puce.serialNumber}
+                </p>
+              )}
+
+              {puce.pukCode && (
+                <p>
+                  <strong>Code PUK :</strong>{" "}
+                  {puce.pukCode}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* ── Commitment Paragraphs ── */}
+        <div className="mt-8 text-[13px] leading-[1.8] space-y-4">
+          <p>
+            Je reconnais avoir reçu cette carte SIM en état de
+            fonctionnement et m'engage à en faire un usage
+            strictement professionnel conformément aux politiques
+            internes et aux règles de sécurité de l'entreprise.
+          </p>
+
+          <p>
+            Je m'engage également à :
+          </p>
+
+          <div className="pl-5 space-y-2">
+            <p>
+              • Préserver la confidentialité des communications
+              et informations liées à cette ligne ;
+            </p>
+
+            <p>
+              • Ne pas céder ni prêter cette carte SIM à une
+              tierce personne sans autorisation ;
+            </p>
+
+            <p>
+              • Signaler immédiatement toute perte, vol ou
+              dysfonctionnement au service concerné ;
+            </p>
+
+            <p>
+              • Restituer la carte SIM en cas de départ de
+              l'entreprise, changement de poste ou demande
+              de la direction.
+            </p>
+          </div>
+
+          <p className="pt-2">
+            Le titulaire fournit également une copie de sa
+            pièce d'identité / permis de conduire comportant
+            son numéro d'identification nationale.
+          </p>
+        </div>
+
+        {/* ── Signature ── */}
+        <div className="mt-auto flex justify-end pb-16">
+          <div className="w-72">
+            <p className="text-[13px]">
+              Fait à BATNA, le{" "}
+              {new Date().toLocaleDateString("fr-FR")}
+            </p>
+
+            <div className="mt-16 mb-1 border-b border-black w-full" />
+
+            <p className="text-[11px] text-slate-500 mb-5">
+              Signature
+            </p>
+
+            <p className="font-bold uppercase text-[13px]">
+              {node?.name || ""}
+            </p>
+
+            <p className="font-semibold text-[13px]">
+              SARL TECHNOCERAM
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  })()}
+</div>
               </div>
             </div>
           </div>

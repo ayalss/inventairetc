@@ -15,6 +15,16 @@ export interface Material {
   assignedNodeId: string; // ID of the SubNode (Office/Person/Cabinet) owning this
 }
 
+export interface Puce {
+  id: string;
+  serialNumber: string; // s/n
+  phoneNumber: string; // N tel
+  pukCode: string;
+  monthlyCredit: number;
+  status: 'Active' | 'Suspended';
+  assignedNodeId: string; // ID of the SubNode (Office/Person/Cabinet) owning this
+}
+
 export interface SubNode {
   id: string;
   name: string; // e.g., "Server Room Rack A", "Michael (Helpdesk)", "Office 102 Workstations"
