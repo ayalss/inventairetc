@@ -160,16 +160,19 @@ export default function PortalView({
   const [matName, setMatName] = useState('');
   const [matType, setMatType] = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque'>('Laptop');
   const [matStatus, setMatStatus] = useState<'Active' | 'Under Repair' | 'In Storage' | 'Retired'>('Active');
+  // ── NEW: condition state ──
+  const [matCondition, setMatCondition] = useState<'Bon' | 'Neuf'>('Bon');
   const [matSerial, setMatSerial] = useState('');
   const [matCost, setMatCost] = useState('');
   const [matDate, setMatDate] = useState('');
   const [matNotes, setMatNotes] = useState('');
 
-  const [puceSerial, setPuceSerial] = useState('');
-  const [pucePhone, setPucePhone] = useState('');
-  const [pucePuk, setPucePuk] = useState('');
-  const [puceCredit, setPuceCredit] = useState('');
-  const [puceStatus, setPuceStatus] = useState<'Active' | 'Suspended'>('Active');
+  const [puceSerial,   setPuceSerial]   = useState('');
+  const [pucePhone,    setPucePhone]    = useState('');
+  const [pucePuk,      setPucePuk]      = useState('');
+  const [puceCredit,   setPuceCredit]   = useState('');
+  const [puceStatus,   setPuceStatus]   = useState<'Active' | 'Suspended'>('Active');
+  const [puceContract, setPuceContract] = useState<'TC' | 'LX' | 'PL'>('TC');
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -251,6 +254,8 @@ export default function PortalView({
       materialNum: materialNum,
       codification: codification,
       status: matStatus,
+      // ── NEW: include condition ──
+      condition: matCondition,
       serialNumber: matSerial.trim() || `SN-${Math.floor(100000 + Math.random() * 900000)}`,
       purchaseDate: matDate || undefined,
       cost: Number(matCost) || 0,
@@ -268,6 +273,8 @@ export default function PortalView({
     setMatNotes('');
     setMatDate('');
     setMatStatus('Active');
+    // ── NEW: reset condition ──
+    setMatCondition('Bon');
   };
 
   const handleAddPuceSubmit = (e: React.FormEvent) => {
@@ -281,6 +288,7 @@ export default function PortalView({
       pukCode: pucePuk.trim(),
       monthlyCredit: Number(puceCredit) || 0,
       status: puceStatus,
+      contractCompany: puceContract,
       assignedNodeId: activeSubNode.id
     };
 
@@ -293,6 +301,7 @@ export default function PortalView({
     setPucePuk('');
     setPuceCredit('');
     setPuceStatus('Active');
+    setPuceContract('TC');
   };
 
   const handleEditMaterialSave = (e: React.FormEvent) => {
@@ -363,6 +372,8 @@ export default function PortalView({
               <div key={mat.id} className="space-y-0.5">
                 <p><strong>{mat.type} :</strong> {mat.name}</p>
                 <p><strong>Marque et modèle :</strong> {mat.name}</p>
+                {/* ── NEW: show condition in décharge ── */}
+                <p><strong>État :</strong> {mat.condition || 'Bon'}</p>
                 {mat.notes && <p className="whitespace-pre-wrap text-[12.5px] leading-[1.55]">{mat.notes}</p>}
               </div>
             ))}
@@ -370,7 +381,11 @@ export default function PortalView({
   
           {/* ── Commitment paragraphs ── */}
           <div className="mt-5 text-[13px] leading-[1.7] space-y-3">
-            <p>Je reconnais avoir reçu ce matériel en <strong>bon</strong> état de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
+            <p>Je reconnais avoir reçu ce matériel en <strong>
+    {selectedMaterials[0]?.condition === 'Neuf'
+      ? 'état neuf'
+      : 'bon état'}
+  </strong>{" "} de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
             <p>Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.</p>
             <p>En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel en bon état dans les plus brefs délais.</p>
           </div>
@@ -728,6 +743,16 @@ export default function PortalView({
                               }`}>
                                 {material.status}
                               </span>
+                              {/* ── NEW: show condition badge in list ── */}
+                              {material.condition && (
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                  material.condition === 'Neuf'
+                                    ? 'bg-blue-50 text-blue-600 border border-blue-200/60'
+                                    : 'bg-amber-50 text-amber-600 border border-amber-200/60'
+                                }`}>
+                                  {material.condition}
+                                </span>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
@@ -1092,6 +1117,29 @@ export default function PortalView({
                       </div>
                     </div>
 
+                    {/* ── NEW: État (condition) field ── */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
+                        État
+                      </label>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {(['Bon', 'Neuf'] as const).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setMatCondition(c)}
+                            className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                              matCondition === c
+                                ? 'bg-slate-900 text-white shadow-xs'
+                                : 'bg-slate-50 hover:bg-slate-100/60 text-slate-600 border border-slate-200'
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3.5">
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">{t('serial_number_optional')}</label>
@@ -1174,6 +1222,29 @@ export default function PortalView({
                           <option value="Suspended">Suspendu</option>
                         </select>
                       </div>
+                    </div>
+
+                    {/* Contrat Ooredoo */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
+                        Contrat Ooredoo <span className="text-[#FF1E1E]">*</span>
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['TC', 'LX', 'PL'] as const).map((co) => (
+                          <button key={co} type="button"
+                            onClick={() => setPuceContract(co)}
+                            className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                              puceContract === co
+                                ? 'bg-slate-900 text-white shadow-xs'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                            }`}>
+                            {co}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-[#86868B] mt-1">
+                        Which company's Ooredoo contract — independent of where it's used.
+                      </p>
                     </div>
 
                     <div className="p-3 bg-rose-50/50 border border-rose-100 rounded-xl">
@@ -1268,6 +1339,29 @@ export default function PortalView({
                         <option value="In Storage">{t('in_reserve_stock')}</option>
                         <option value="Retired">{t('retired') ?? 'Retired'}</option>
                       </select>
+                    </div>
+                  </div>
+
+                  {/* ── NEW: État (condition) in edit modal ── */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
+                      État
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {(['Bon', 'Neuf'] as const).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setEditingMaterial({ ...editingMaterial, condition: c })}
+                          className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                            (editingMaterial.condition || 'Bon') === c
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-slate-50 hover:bg-slate-100/60 text-slate-600 border border-slate-200'
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -1397,6 +1491,24 @@ export default function PortalView({
                         <option value="Active">Actif</option>
                         <option value="Suspended">Suspendu</option>
                       </select>
+                    </div>
+                  </div>
+
+                  {/* Contrat Ooredoo — edit */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Contrat Ooredoo</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['TC', 'LX', 'PL'] as const).map((co) => (
+                        <button key={co} type="button"
+                          onClick={() => setEditingPuce({ ...editingPuce, contractCompany: co })}
+                          className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                            (editingPuce.contractCompany || 'TC') === co
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}>
+                          {co}
+                        </button>
+                      ))}
                     </div>
                   </div>
 

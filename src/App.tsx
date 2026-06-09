@@ -579,6 +579,7 @@ export default function App() {
           {!isLoading && selectedUtility === 'scanner' && (
             <QrScannerTab
               materials={materials}
+              subNodes={subNodes}
               onSelectMaterial={handleInspectAssetFromScanner}
             />
           )}

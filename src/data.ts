@@ -496,8 +496,8 @@ export function generateMaterialCodification(
 
   // Count assets of the SAME type on the SAME desk only → resets per type
   const countSameTypeOnDesk = existingMaterials.filter(
-    (m) => m.officeNum === officeNum && m.type === type
-  ).length;
+    (m) => m.officeNum === officeNum && m.type === type && m.company === company
+).length;
 
   const materialNum = String(countSameTypeOnDesk + 1);
 

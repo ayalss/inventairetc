@@ -96,21 +96,23 @@ export default function ManagementTab({
   const [nodeRole,      setNodeRole]      = useState('');
   const [nodeCin,       setNodeCin]       = useState('');
 
-  const [matName,   setMatName]   = useState('');
-  const [matType,   setMatType]   = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Other'>('Desktop');
-  const [matStatus, setMatStatus] = useState<'Active' | 'Under Repair' | 'In Storage' | 'Retired'>('Active');
-  const [matSerial, setMatSerial] = useState('');
-  const [matCost,   setMatCost]   = useState('');
-  const [matDate,   setMatDate]   = useState('');
-  const [matNodeId, setMatNodeId] = useState(subNodes[0]?.id || '');
-  const [matNotes,  setMatNotes]  = useState('');
+  const [matName,      setMatName]      = useState('');
+  const [matType,      setMatType]      = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Other'>('Desktop');
+  const [matStatus,    setMatStatus]    = useState<'Active' | 'Under Repair' | 'In Storage' | 'Retired'>('Active');
+  const [matCondition, setMatCondition] = useState<'Bon' | 'Neuf'>('Bon');
+  const [matSerial,    setMatSerial]    = useState('');
+  const [matCost,      setMatCost]      = useState('');
+  const [matDate,      setMatDate]      = useState('');
+  const [matNodeId,    setMatNodeId]    = useState(subNodes[0]?.id || '');
+  const [matNotes,     setMatNotes]     = useState('');
 
-  const [puceSerial, setPuceSerial] = useState('');
-  const [pucePhone,  setPucePhone]  = useState('');
-  const [pucePuk,    setPucePuk]    = useState('');
-  const [puceCredit, setPuceCredit] = useState('');
-  const [puceStatus, setPuceStatus] = useState<'Active' | 'Suspended'>('Active');
-  const [puceNodeId, setPuceNodeId] = useState(subNodes[0]?.id || '');
+  const [puceSerial,   setPuceSerial]   = useState('');
+  const [pucePhone,    setPucePhone]    = useState('');
+  const [pucePuk,      setPucePuk]      = useState('');
+  const [puceCredit,   setPuceCredit]   = useState('');
+  const [puceStatus,   setPuceStatus]   = useState<'Active' | 'Suspended'>('Active');
+  const [puceContract, setPuceContract] = useState<'TC' | 'LX' | 'PL'>('TC');
+  const [puceNodeId,   setPuceNodeId]   = useState(subNodes[0]?.id || '');
 
   const triggerSuccess = (msg: string) => {
     setShowSuccessToast(msg);
@@ -182,6 +184,7 @@ export default function ManagementTab({
       id: `mat-${Date.now()}`, name: matName, type: matType,
       company: associatedManager.company, deptNum: resolvedDeptNum,
       officeNum: targetNode.officeNum, materialNum, codification, status: matStatus,
+      condition: matCondition,
       serialNumber: matSerial.trim() || `SN-PENDING-${Math.floor(1000 + Math.random() * 9000)}`,
       purchaseDate: matDate ? matDate : undefined, cost: Number(matCost) || 0,
       notes: matNotes.trim() || undefined, assignedNodeId: activeNodeId
@@ -189,6 +192,7 @@ export default function ManagementTab({
     onAddMaterial(newMaterial);
     triggerSuccess(`Asset cataloged — QR ID: ${codification}`);
     setMatName(''); setMatSerial(''); setMatCost(''); setMatNotes(''); setMatDate('');
+    setMatCondition('Bon');
     setMatNodeId(subNodes[0]?.id || '');
   };
 
@@ -206,12 +210,14 @@ export default function ManagementTab({
       pukCode: pucePuk.trim(),
       monthlyCredit: Number(puceCredit) || 0,
       status: puceStatus,
+      contractCompany: puceContract,
       assignedNodeId: activeNodeId
     };
     onAddPuce(newPuce);
     triggerSuccess(`Puce ${newPuce.phoneNumber} registered under ${targetNode.name}`);
     setPuceSerial(''); setPucePhone(''); setPucePuk(''); setPuceCredit('');
     setPuceStatus('Active');
+    setPuceContract('TC');
     setPuceNodeId(subNodes[0]?.id || '');
   };
 
@@ -331,81 +337,71 @@ export default function ManagementTab({
   };
 
   // ─── Décharge document renderer ───────────────────────────────────────────
-    const renderDechargeDocument = (selectedMaterials: Material[]) => {
-        if (selectedMaterials.length === 0) return null;
-        const node = subNodes.find(n => n.id === selectedMaterials[0].assignedNodeId) as any;
-        const mng  = node ? managers.find(m => m.id === node.managerId) as any : null;
-        const dept = mng ? departments.find(d => d.id === mng.departmentId) : null;
-        const currentDate = new Date().toLocaleDateString("fr-FR");
-    
-        return (
-          <div className="printable-area bg-white text-black w-[210mm] h-[297mm] mx-auto px-[20mm] py-[14mm] font-sans text-[12.5px] leading-[1.5] print:w-[210mm] print:h-[297mm] box-border flex flex-col overflow-hidden">
-            {/* ── Header ── */}
-            <div>
-              <div className="flex items-start gap-4">
-                <img src="/tc.jpg" alt="TECHNOCERAM" className="w-14 object-contain" />
-                <h1 className="font-black text-[20px] leading-none mt-1">TECHNOCERAM</h1>
-              </div>
-              <div className="border-b-[3px] border-red-600 mt-5" />
-              <p className="font-semibold text-[13px] mt-3">N° : ______ /2026</p>
-            </div>
-    
-            {/* ── Title ── */}
-            <div className="mt-15 text-center">
-              <h2 className="font-black text-[18px]">Bon de Décharge pour Matériel Informatique</h2>
-            </div>
-    
-            {/* ── Intro paragraph ── */}
-            <div className="mt-15 text-[13px] leading-[1.7]">
-              <p>
-                Je soussigné(e),{" "}
-                <strong>{node?.name || "________________"}</strong>,{" "}
-                <strong>{node?.role || mng?.role || "________________"}</strong>{" "}
-                de la SARL TECHNOCERAM, déclare par la présente avoir reçu le matériel informatique suivant,
-                et fournir, à cet effet, une copie de ma carte d'identité nationale n°{" "}
-                <strong>{(node as any)?.cin || "________________"}</strong>.
-              </p>
-            </div>
-    
-            {/* ── Materials list ── */}
-            <div className="mt-4 text-[13px] leading-[1.6] space-y-1">
-              {selectedMaterials.map((mat) => (
-                <div key={mat.id} className="space-y-0.5">
-                  <p><strong>{mat.type} :</strong> {mat.name}</p>
-                  <p><strong>Marque et modèle :</strong> {mat.name}</p>
-                  {mat.notes && <p className="whitespace-pre-wrap text-[12.5px] leading-[1.55]">{mat.notes}</p>}
-                </div>
-              ))}
-            </div>
-    
-            {/* ── Commitment paragraphs ── */}
-            <div className="mt-5 text-[13px] leading-[1.7] space-y-3">
-              <p>Je reconnais avoir reçu ce matériel en <strong>bon</strong> état de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
-              <p>Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.</p>
-              <p>En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel en bon état dans les plus brefs délais.</p>
-            </div>
-    
-            {/* ── Signature always pinned to bottom ── */}
-            <div className="mt-auto flex justify-end pb-16">
-              <div className="w-72">
-                <p className="text-[13px]">
-                  Fait à BATNA, le {(() => {
-                    const d = selectedMaterials[0]?.purchaseDate;
-                    if (!d) return currentDate;
-                    const date = new Date(d);
-                    return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
-                  })()}
-                </p>
-                <div className="mt-16 mb-1 border-b border-black w-full" />
-                <p className="text-[11px] text-slate-500 mb-5">Signature</p>
-                <p className="font-bold uppercase text-[13px]">{node?.name}</p>
-                <p className="font-semibold text-[13px]">SARL TECHNOCERAM</p>
-              </div>
-            </div>
-    
+  const renderDechargeDocument = (selectedMaterials: Material[]) => {
+    if (selectedMaterials.length === 0) return null;
+    const node = subNodes.find(n => n.id === selectedMaterials[0].assignedNodeId) as any;
+    const mng  = node ? managers.find(m => m.id === node.managerId) as any : null;
+    const dept = mng ? departments.find(d => d.id === mng.departmentId) : null;
+    const currentDate = new Date().toLocaleDateString("fr-FR");
+
+    return (
+      <div className="printable-area bg-white text-black w-[210mm] h-[297mm] mx-auto px-[20mm] py-[14mm] font-sans text-[12.5px] leading-[1.5] print:w-[210mm] print:h-[297mm] box-border flex flex-col overflow-hidden">
+        <div>
+          <div className="flex items-start gap-4">
+            <img src="/tc.jpg" alt="TECHNOCERAM" className="w-14 object-contain" />
+            <h1 className="font-black text-[20px] leading-none mt-1">TECHNOCERAM</h1>
           </div>
-        );
-      };
+          <div className="border-b-[3px] border-red-600 mt-5" />
+          <p className="font-semibold text-[13px] mt-3">N° : ______ /2026</p>
+        </div>
+        <div className="mt-15 text-center">
+          <h2 className="font-black text-[18px]">Bon de Décharge pour Matériel Informatique</h2>
+        </div>
+        <div className="mt-15 text-[13px] leading-[1.7]">
+          <p>
+            Je soussigné(e),{" "}
+            <strong>{node?.name || "________________"}</strong>,{" "}
+            <strong>{node?.role || mng?.role || "________________"}</strong>{" "}
+            de la SARL TECHNOCERAM, déclare par la présente avoir reçu le matériel informatique suivant,
+            et fournir, à cet effet, une copie de ma carte d'identité nationale n°{" "}
+            <strong>{(node as any)?.cin || "________________"}</strong>.
+          </p>
+        </div>
+        <div className="mt-4 text-[13px] leading-[1.6] space-y-1">
+          {selectedMaterials.map((mat) => (
+            <div key={mat.id} className="space-y-0.5">
+              <p><strong>{mat.type} :</strong> {mat.name}</p>
+              <p><strong>Marque et modèle :</strong> {mat.name}</p>
+              {mat.notes && <p className="whitespace-pre-wrap text-[12.5px] leading-[1.55]">{mat.notes}</p>}
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 text-[13px] leading-[1.7] space-y-3">
+          <p>Je reconnais avoir reçu ce matériel en <strong>
+            {selectedMaterials[0]?.condition === 'Neuf' ? 'état neuf' : 'bon état'}
+          </strong>{" "}état de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
+          <p>Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.</p>
+          <p>En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel en bon état dans les plus brefs délais.</p>
+        </div>
+        <div className="mt-auto flex justify-end pb-16">
+          <div className="w-72">
+            <p className="text-[13px]">
+              Fait à BATNA, le {(() => {
+                const d = selectedMaterials[0]?.purchaseDate;
+                if (!d) return currentDate;
+                const date = new Date(d);
+                return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
+              })()}
+            </p>
+            <div className="mt-16 mb-1 border-b border-black w-full" />
+            <p className="text-[11px] text-slate-500 mb-5">Signature</p>
+            <p className="font-bold uppercase text-[13px]">{node?.name}</p>
+            <p className="font-semibold text-[13px]">SARL TECHNOCERAM</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
@@ -497,6 +493,23 @@ export default function ManagementTab({
                       </select>
                     </div>
                   </div>
+                  {/* État (condition) */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">État</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['Bon', 'Neuf'] as const).map((c) => (
+                        <button key={c} type="button"
+                          onClick={() => setMatCondition(c)}
+                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                            matCondition === c
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}>
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Serial No (S/N)</label>
@@ -533,7 +546,7 @@ export default function ManagementTab({
             </form>
           )}
 
-          {/* B. SUBNODE FORM — with Role + CIN (from File 1) */}
+          {/* B. PUCE FORM */}
           {activeForm === 'puce' && (
             <form onSubmit={handlePuceSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
@@ -593,6 +606,28 @@ export default function ManagementTab({
                       </select>
                     </div>
                   </div>
+                  {/* Contrat Ooredoo */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
+                      Contrat Ooredoo <span className="text-[#FF1E1E]">*</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['TC', 'LX', 'PL'] as const).map((co) => (
+                        <button key={co} type="button"
+                          onClick={() => setPuceContract(co)}
+                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                            puceContract === co
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}>
+                          {co}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-[#86868B] mt-1">
+                      Whose Ooredoo contract this SIM is billed under — independent of where it's physically used.
+                    </p>
+                  </div>
                   <button type="submit"
                     className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2">
                     <Plus className="w-4 h-4 text-[#FF1E1E]" />Register Puce
@@ -602,6 +637,7 @@ export default function ManagementTab({
             </form>
           )}
 
+          {/* C. SUBNODE FORM */}
           {activeForm === 'subnode' && (
             <form onSubmit={handleSubNodeSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
@@ -630,7 +666,6 @@ export default function ManagementTab({
                       className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                       value={nodeRole} onChange={(e) => setNodeRole(e.target.value)} />
                   </div>
-                  {/* CIN field — from File 1 */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                       <CreditCard className="w-3 h-3" />CIN <span className="text-slate-400 normal-case font-normal">(optional — shown in Décharge)</span>
@@ -665,7 +700,7 @@ export default function ManagementTab({
             </form>
           )}
 
-          {/* C. MANAGER FORM */}
+          {/* D. MANAGER FORM */}
           {activeForm === 'manager' && (
             <form onSubmit={handleManagerSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
@@ -719,7 +754,7 @@ export default function ManagementTab({
             </form>
           )}
 
-          {/* D. DEPARTMENT FORM */}
+          {/* E. DEPARTMENT FORM */}
           {activeForm === 'dept' && (
             <form onSubmit={handleDeptSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
@@ -780,7 +815,7 @@ export default function ManagementTab({
             </div>
           </div>
 
-          {/* ── Search bar ── */}
+          {/* Search bar */}
           <div className="relative mt-4">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             <input type="text" placeholder={`Search in ${inspectorTab}...`}
@@ -788,7 +823,7 @@ export default function ManagementTab({
               value={inspectorSearch} onChange={(e) => setInspectorSearch(e.target.value)} />
           </div>
 
-          {/* ── Décharge action bar — only on Materials tab ── */}
+          {/* Décharge action bar — only on Materials tab */}
           {inspectorTab === 'materials' && (
             <div className="mt-3 flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
               <div className="flex items-center gap-2">
@@ -819,7 +854,7 @@ export default function ManagementTab({
             </div>
           )}
 
-          {/* ── Record list ── */}
+          {/* Record list */}
           <div className="mt-3 flex-1 overflow-y-auto workspace-scroll max-h-110 pr-1 space-y-2">
 
             {/* MATERIALS */}
@@ -840,6 +875,11 @@ export default function ManagementTab({
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-slate-950 text-xs tracking-wide">{m.codification}</span>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${m.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' : m.status === 'Under Repair' ? 'bg-[#FF9500]/10 text-[#FF9500]' : 'bg-slate-200 text-slate-700'}`}>{m.status}</span>
+                        {(m as any).condition && (
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${(m as any).condition === 'Neuf' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {(m as any).condition}
+                          </span>
+                        )}
                       </div>
                       <span className="text-[11px] font-semibold text-slate-800 block truncate mt-0.5">{m.name}</span>
                       <span className="text-[10px] text-[#86868B] block truncate">
@@ -866,7 +906,7 @@ export default function ManagementTab({
               }) : <p className="text-xs text-[#86868B] text-center py-10">No matching assets found.</p>
             )}
 
-            {/* SUBNODES — with document buttons */}
+            {/* PUCES */}
             {inspectorTab === 'puces' && (
               getFilteredPuces().length > 0 ? getFilteredPuces().map((p) => {
                 const node = subNodes.find(n => n.id === p.assignedNodeId);
@@ -880,6 +920,15 @@ export default function ManagementTab({
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-slate-950 text-xs tracking-wide">{p.phoneNumber}</span>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${p.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF9500]/10 text-[#FF9500]'}`}>{p.status === 'Active' ? 'Actif' : 'Suspendu'}</span>
+                        {p.contractCompany && (
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border ${
+                            p.contractCompany === 'TC' ? 'bg-red-100 text-red-700 border-red-200' :
+                            p.contractCompany === 'LX' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                            'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          }`}>
+                            {p.contractCompany}
+                          </span>
+                        )}
                       </div>
                       <span className="text-[11px] font-semibold text-slate-800 block truncate mt-0.5">
                         {node ? node.name : 'Unknown Desk'} - Credit/mois: {Number(p.monthlyCredit || 0).toLocaleString()} DA
@@ -903,6 +952,7 @@ export default function ManagementTab({
               }) : <p className="text-xs text-[#86868B] text-center py-10">No matching puces found.</p>
             )}
 
+            {/* SUBNODES */}
             {inspectorTab === 'subnodes' && (
               getFilteredSubNodes().length > 0 ? getFilteredSubNodes().map((s: any) => {
                 const mng = managers.find(man => man.id === s.managerId);
@@ -933,13 +983,11 @@ export default function ManagementTab({
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {/* Upload button */}
                       <label title="Upload documents" className="p-1.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-lg transition-colors cursor-pointer">
                         <FileUp className="w-3.5 h-3.5" />
                         <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt"
                           onChange={(e) => handleDocumentUpload(s.id, e.target.files)} />
                       </label>
-                      {/* Documents view button */}
                       <button onClick={() => setDocsModalNode(s as SubNodeWithDocs)} title={`View documents (${docCount})`}
                         className={`p-1.5 border rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-bold ${docCount > 0 ? 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100' : 'bg-white text-slate-400 border-slate-200 hover:text-slate-600 hover:bg-slate-100'}`}>
                         <Paperclip className="w-3.5 h-3.5" />
@@ -1017,9 +1065,7 @@ export default function ManagementTab({
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          DOCUMENTS MODAL
-      ════════════════════════════════════════════════════════════════════════ */}
+      {/* ════════ DOCUMENTS MODAL ════════ */}
       {docsModalNode && (
         <div className="fixed inset-0 bg-[#1D1D1F]/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl border border-[#D2D2D7]/50 shadow-2xl max-w-lg w-full p-6 animate-in zoom-in-95 duration-150 flex flex-col max-h-[80vh]">
@@ -1089,9 +1135,7 @@ export default function ManagementTab({
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          EDIT MODAL
-      ════════════════════════════════════════════════════════════════════════ */}
+      {/* ════════ EDIT MODAL ════════ */}
       {editingItem && (
         <div className="fixed inset-0 bg-[#1D1D1F]/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl border border-[#D2D2D7]/50 shadow-2xl max-w-lg w-full p-6 animate-in zoom-in-95 duration-150">
@@ -1100,6 +1144,8 @@ export default function ManagementTab({
               <button onClick={() => setEditingItem(null)} className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={handleEditSave} className="space-y-4">
+
+              {/* EDIT DEPT */}
               {editingItem.type === 'dept' && (
                 <div className="space-y-3">
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Department Name</label>
@@ -1110,6 +1156,8 @@ export default function ManagementTab({
                       onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, deptNum: e.target.value } })} /></div>
                 </div>
               )}
+
+              {/* EDIT MANAGER */}
               {editingItem.type === 'manager' && (
                 <div className="space-y-3">
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Full Name</label>
@@ -1126,7 +1174,7 @@ export default function ManagementTab({
                       <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.officeNum}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, officeNum: e.target.value } })} /></div>
                   </div>
-                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1 items-center gap-1"><CreditCard className="w-3 h-3" />CIN (optional)</label>
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">CIN (optional)</label>
                     <input type="text" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-mono" value={editingItem.data.cin || ''}
                       onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, cin: e.target.value } })} /></div>
                   <div className="grid grid-cols-2 gap-3">
@@ -1143,6 +1191,8 @@ export default function ManagementTab({
                   </div>
                 </div>
               )}
+
+              {/* EDIT SUBNODE */}
               {editingItem.type === 'subnode' && (
                 <div className="space-y-3">
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Full Name</label>
@@ -1151,7 +1201,7 @@ export default function ManagementTab({
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Role / Title</label>
                     <input type="text" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" placeholder="e.g. Méthodiste Luxe Tile" value={editingItem.data.role || ''}
                       onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, role: e.target.value } })} /></div>
-                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1 items-center gap-1"><CreditCard className="w-3 h-3" />CIN (optional)</label>
+                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">CIN (optional)</label>
                     <input type="text" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-mono" value={editingItem.data.cin || ''}
                       onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, cin: e.target.value } })} /></div>
                   <div className="grid grid-cols-2 gap-4">
@@ -1172,6 +1222,8 @@ export default function ManagementTab({
                     </select></div>
                 </div>
               )}
+
+              {/* EDIT PUCE */}
               {editingItem.type === 'puce' && (
                 <div className="space-y-3">
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Location Node</label>
@@ -1201,8 +1253,27 @@ export default function ManagementTab({
                         <option value="Suspended">Suspendu</option>
                       </select></div>
                   </div>
+                  {/* Contrat Ooredoo — edit */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Contrat Ooredoo</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['TC', 'LX', 'PL'] as const).map((co) => (
+                        <button key={co} type="button"
+                          onClick={() => setEditingItem({ ...editingItem, data: { ...editingItem.data, contractCompany: co } })}
+                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                            (editingItem.data.contractCompany || 'TC') === co
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}>
+                          {co}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* EDIT MATERIAL */}
               {editingItem.type === 'material' && (
                 <div className="space-y-3">
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Asset Model Name</label>
@@ -1245,6 +1316,23 @@ export default function ManagementTab({
                       <input type="text" required className="font-mono w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none bg-slate-100" value={editingItem.data.codification}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, codification: e.target.value } })} /></div>
                   </div>
+                  {/* État (condition) — edit */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">État</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['Bon', 'Neuf'] as const).map((c) => (
+                        <button key={c} type="button"
+                          onClick={() => setEditingItem({ ...editingItem, data: { ...editingItem.data, condition: c } })}
+                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                            (editingItem.data.condition || 'Bon') === c
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}>
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">
                       Configuration / Specs <span className="text-[#FF1E1E]">(→ Décharge)</span>
@@ -1253,6 +1341,7 @@ export default function ManagementTab({
                       onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, notes: e.target.value } })} /></div>
                 </div>
               )}
+
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => setEditingItem(null)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all cursor-pointer">Cancel</button>
                 <button type="submit" className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer uppercase tracking-wider">Save Modifications</button>
@@ -1262,9 +1351,7 @@ export default function ManagementTab({
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          DÉCHARGE PREVIEW MODAL
-      ════════════════════════════════════════════════════════════════════════ */}
+      {/* ════════ DÉCHARGE PREVIEW MODAL ════════ */}
       {dechargePreviewMaterials && (
         <div className="fixed inset-0 bg-[#1D1D1F]/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full p-8 my-8 relative flex flex-col max-h-[92vh]">
@@ -1292,9 +1379,7 @@ export default function ManagementTab({
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          DEPT REPORT MODAL
-      ════════════════════════════════════════════════════════════════════════ */}
+      {/* ════════ DEPT REPORT MODAL ════════ */}
       {printDeptReport && (() => {
         const dept = printDeptReport;
         const deptMngs = managers.filter(m => m.departmentId === dept.id);

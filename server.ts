@@ -111,18 +111,25 @@ async function checkAndInitializeDatabase() {
         purchase_date    VARCHAR(50),
         cost             DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
         notes            TEXT,
+        condition        VARCHAR(20)    NOT NULL DEFAULT 'Bon',
         assigned_node_id VARCHAR(50)    REFERENCES sub_nodes(id) ON DELETE CASCADE
       );
 
       CREATE TABLE IF NOT EXISTS puces (
-        id               VARCHAR(50)    PRIMARY KEY,
-        serial_number    VARCHAR(100)   NOT NULL,
-        phone_number     VARCHAR(50)    NOT NULL,
-        puk_code         VARCHAR(100)   NOT NULL,
-        monthly_credit   DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-        status           VARCHAR(50)    NOT NULL DEFAULT 'Active',
-        assigned_node_id VARCHAR(50)    REFERENCES sub_nodes(id) ON DELETE CASCADE
-      );
+  id               VARCHAR(50)    PRIMARY KEY,
+  serial_number    VARCHAR(100)   NOT NULL,
+  phone_number     VARCHAR(50)    NOT NULL,
+  puk_code         VARCHAR(100)   NOT NULL,
+  monthly_credit   DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+  status           VARCHAR(50)    NOT NULL DEFAULT 'Active',
+  contract_company VARCHAR(5)     NOT NULL DEFAULT 'TC',
+  assigned_node_id VARCHAR(50)    REFERENCES sub_nodes(id) ON DELETE CASCADE
+);
+    `);
+
+    // ── NEW: add condition column if upgrading an existing DB that doesn't have it yet ──
+    await client.query(`
+      ALTER TABLE materials ADD COLUMN IF NOT EXISTS condition VARCHAR(20) NOT NULL DEFAULT 'Bon';
     `);
 
     // Seed admin user if missing
@@ -159,11 +166,11 @@ async function checkAndInitializeDatabase() {
       }
       for (const mat of INITIAL_MATERIALS) {
         await client.query(
-          `INSERT INTO materials (id,name,type,company,dept_num,office_num,material_num,codification,status,serial_number,purchase_date,cost,notes,assigned_node_id)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT (id) DO NOTHING`,
+          `INSERT INTO materials (id,name,type,company,dept_num,office_num,material_num,codification,status,serial_number,purchase_date,cost,notes,condition,assigned_node_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT (id) DO NOTHING`,
           [mat.id, mat.name, mat.type, mat.company, mat.deptNum, mat.officeNum, mat.materialNum,
            mat.codification, mat.status, mat.serialNumber, mat.purchaseDate || null,
-           mat.cost, mat.notes || null, mat.assignedNodeId || null]
+           mat.cost, mat.notes || null, (mat as any).condition || 'Bon', mat.assignedNodeId || null]
         );
       }
       console.log('[POSTGRES] Initial seeding complete.');
@@ -505,7 +512,7 @@ app.get('/api/materials', async (req, res) => {
   try {
     if (isDbConnected) {
       const { rows } = await pool.query(`
-        SELECT id, name, type, company, status, codification, cost, notes,
+        SELECT id, name, type, company, status, codification, cost, notes, condition,
                dept_num         AS "deptNum",
                office_num       AS "officeNum",
                material_num     AS "materialNum",
@@ -526,7 +533,10 @@ app.get('/api/materials', async (req, res) => {
 app.post('/api/materials', async (req, res) => {
   const {
     id, name, type, company, deptNum, officeNum, materialNum,
-    codification, status, serialNumber, purchaseDate, cost, notes, assignedNodeId
+    codification, status, serialNumber, purchaseDate, cost, notes,
+    // ── NEW ──
+    condition,
+    assignedNodeId
   } = req.body;
 
   if (!id || !name || !type || !company || !codification || !status) {
@@ -544,14 +554,14 @@ app.post('/api/materials', async (req, res) => {
       const { rows } = await pool.query(
         `INSERT INTO materials (
            id, name, type, company, dept_num, office_num, material_num,
-           codification, status, serial_number, purchase_date, cost, notes, assigned_node_id
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+           codification, status, serial_number, purchase_date, cost, notes, condition, assigned_node_id
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
          ON CONFLICT (id) DO UPDATE SET
            name=$2, type=$3, company=$4, dept_num=$5, office_num=$6, material_num=$7,
            codification=$8, status=$9, serial_number=$10, purchase_date=$11,
-           cost=$12, notes=$13, assigned_node_id=$14
+           cost=$12, notes=$13, condition=$14, assigned_node_id=$15
          RETURNING
-           id, name, type, company, status, codification, cost, notes,
+           id, name, type, company, status, codification, cost, notes, condition,
            dept_num AS "deptNum", office_num AS "officeNum", material_num AS "materialNum",
            serial_number AS "serialNumber", purchase_date AS "purchaseDate",
            assigned_node_id AS "assignedNodeId"`,
@@ -565,6 +575,8 @@ app.post('/api/materials', async (req, res) => {
           purchaseDate || null,
           parseFloat(cost) || 0,
           notes        || null,
+          // ── NEW: default to 'Bon' if not provided ──
+          condition    || 'Bon',
           assignedNodeId || null
         ]
       );
@@ -573,7 +585,9 @@ app.post('/api/materials', async (req, res) => {
       const idx = memoryStore.materials.findIndex(m => m.id === id);
       const payload = {
         id, name, type, company, deptNum, officeNum, materialNum,
-        codification, status, serialNumber, purchaseDate, cost, notes, assignedNodeId
+        codification, status, serialNumber, purchaseDate, cost, notes,
+        condition: condition || 'Bon',
+        assignedNodeId
       };
       if (idx > -1) memoryStore.materials[idx] = payload;
       else memoryStore.materials.push(payload);
@@ -609,6 +623,7 @@ app.get('/api/puces', async (req, res) => {
                phone_number     AS "phoneNumber",
                puk_code         AS "pukCode",
                monthly_credit   AS "monthlyCredit",
+               contract_company AS "contractCompany",
                assigned_node_id AS "assignedNodeId"
         FROM puces ORDER BY phone_number ASC
       `);
@@ -622,9 +637,9 @@ app.get('/api/puces', async (req, res) => {
 });
 
 app.post('/api/puces', async (req, res) => {
-  const { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, assignedNodeId } = req.body;
+  const { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, assignedNodeId, contractCompany } = req.body;
 
-  if (!id || !serialNumber || !phoneNumber || !pukCode || !status || !assignedNodeId) {
+  if (!id || !serialNumber || !phoneNumber || !pukCode || !status || !assignedNodeId || !contractCompany) {
     return res.status(400).json({ error: 'Missing required puce fields.' });
   }
 
@@ -637,16 +652,18 @@ app.post('/api/puces', async (req, res) => {
 
       const { rows } = await pool.query(
         `INSERT INTO puces (
-           id, serial_number, phone_number, puk_code, monthly_credit, status, assigned_node_id
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+           id, serial_number, phone_number, puk_code, monthly_credit, status, contract_company, assigned_node_id
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
          ON CONFLICT (id) DO UPDATE SET
-           serial_number=$2, phone_number=$3, puk_code=$4, monthly_credit=$5, status=$6, assigned_node_id=$7
+           serial_number=$2, phone_number=$3, puk_code=$4, monthly_credit=$5,
+           status=$6, contract_company=$7, assigned_node_id=$8
          RETURNING
            id, status,
-           serial_number AS "serialNumber",
-           phone_number AS "phoneNumber",
-           puk_code AS "pukCode",
-           monthly_credit AS "monthlyCredit",
+           serial_number    AS "serialNumber",
+           phone_number     AS "phoneNumber",
+           puk_code         AS "pukCode",
+           monthly_credit   AS "monthlyCredit",
+           contract_company AS "contractCompany",
            assigned_node_id AS "assignedNodeId"`,
         [
           id,
@@ -655,13 +672,15 @@ app.post('/api/puces', async (req, res) => {
           pukCode,
           parseFloat(monthlyCredit) || 0,
           status,
+          contractCompany,
           assignedNodeId
         ]
       );
+
       res.json(rows[0]);
     } else {
       const idx = memoryStore.puces.findIndex(p => p.id === id);
-      const payload = { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, assignedNodeId };
+      const payload = { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, contractCompany, assignedNodeId };
       if (idx > -1) memoryStore.puces[idx] = payload;
       else memoryStore.puces.push(payload);
       res.json(payload);

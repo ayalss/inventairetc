@@ -12,7 +12,9 @@ export interface Material {
   purchaseDate?: string;
   cost: number;
   notes?: string;
-  assignedNodeId: string; // ID of the SubNode (Office/Person/Cabinet) owning this
+  assignedNodeId: string; 
+  condition?: 'Bon' | 'Neuf';
+  // ID of the SubNode (Office/Person/Cabinet) owning this
 }
 
 export interface Puce {
@@ -22,7 +24,8 @@ export interface Puce {
   pukCode: string;
   monthlyCredit: number;
   status: 'Active' | 'Suspended';
-  assignedNodeId: string; // ID of the SubNode (Office/Person/Cabinet) owning this
+  assignedNodeId: string;
+  contractCompany: 'TC' | 'LX' | 'PL'; // ID of the SubNode (Office/Person/Cabinet) owning this
 }
 
 export interface SubNode {
