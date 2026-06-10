@@ -47,10 +47,53 @@ const memoryStore = {
   subNodes:    [...INITIAL_SUB_NODES]   as any[],
   materials:   [...INITIAL_MATERIALS]   as any[],
   puces:        [] as any[],
+  auditLogs:    [] as any[],
   users: [
-    { email: 'ayalss@gmail.com', password: 'aya', role: 'admin' }
+    { email: 'ayalss@gmail.com', password: 'aya', role: 'admin', is_blocked: false, created_at: new Date().toISOString() }
   ] as any[]
 };
+
+// ==========================================
+// AUDIT LOGGER HELPER
+// ==========================================
+
+async function logAudit(
+  action: string,
+  userEmail: string | null,
+  details: string,
+  ip: string,
+  userAgent: string
+) {
+  const entry = {
+    user_email: userEmail,
+    action,
+    details,
+    ip_address: ip,
+    user_agent: userAgent,
+    created_at: new Date().toISOString(),
+  };
+
+  try {
+    if (isDbConnected) {
+      await pool.query(
+        `INSERT INTO audit_logs (user_email, action, details, ip_address, user_agent)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [entry.user_email, entry.action, entry.details, entry.ip_address, entry.user_agent]
+      );
+    } else {
+      memoryStore.auditLogs.unshift({ id: Date.now(), ...entry });
+      if (memoryStore.auditLogs.length > 500) memoryStore.auditLogs.pop();
+    }
+  } catch (err: any) {
+    console.error('[AUDIT] Failed to write log:', err.message);
+  }
+}
+
+function getClientIp(req: express.Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return String(forwarded).split(',')[0].trim();
+  return req.socket.remoteAddress || 'unknown';
+}
 
 async function checkAndInitializeDatabase() {
   try {
@@ -116,21 +159,30 @@ async function checkAndInitializeDatabase() {
       );
 
       CREATE TABLE IF NOT EXISTS puces (
-  id               VARCHAR(50)    PRIMARY KEY,
-  serial_number    VARCHAR(100)   NOT NULL,
-  phone_number     VARCHAR(50)    NOT NULL,
-  puk_code         VARCHAR(100)   NOT NULL,
-  monthly_credit   DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-  status           VARCHAR(50)    NOT NULL DEFAULT 'Active',
-  contract_company VARCHAR(5)     NOT NULL DEFAULT 'TC',
-  assigned_node_id VARCHAR(50)    REFERENCES sub_nodes(id) ON DELETE CASCADE
-);
+        id               VARCHAR(50)    PRIMARY KEY,
+        serial_number    VARCHAR(100)   NOT NULL,
+        phone_number     VARCHAR(50)    NOT NULL,
+        puk_code         VARCHAR(100)   NOT NULL,
+        monthly_credit   DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+        status           VARCHAR(50)    NOT NULL DEFAULT 'Active',
+        contract_company VARCHAR(5)     NOT NULL DEFAULT 'TC',
+        assigned_node_id VARCHAR(50)    REFERENCES sub_nodes(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id          SERIAL        PRIMARY KEY,
+        user_email  VARCHAR(150),
+        action      VARCHAR(100)  NOT NULL,
+        details     TEXT,
+        ip_address  VARCHAR(100),
+        user_agent  TEXT,
+        created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
-    // ── NEW: add condition column if upgrading an existing DB that doesn't have it yet ──
-    await client.query(`
-      ALTER TABLE materials ADD COLUMN IF NOT EXISTS condition VARCHAR(20) NOT NULL DEFAULT 'Bon';
-    `);
+    // ── Migrations ──
+    await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS condition VARCHAR(20) NOT NULL DEFAULT 'Bon';`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE;`);
 
     // Seed admin user if missing
     const userCount = await client.query('SELECT COUNT(*) FROM users');
@@ -232,19 +284,176 @@ app.post('/api/auth/login', async (req, res) => {
 
   const cleanEmail    = String(email).trim().toLowerCase();
   const cleanPassword = String(password).trim();
+  const ip            = getClientIp(req);
+  const ua            = req.headers['user-agent'] || 'unknown';
 
   try {
     if (isDbConnected) {
       const { rows } = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
-      if (rows.length === 0) return res.status(401).json({ error: 'Access Denied: User not found.' });
+      if (rows.length === 0) {
+        await logAudit('LOGIN_FAILED', cleanEmail, 'User not found', ip, ua);
+        return res.status(401).json({ error: 'Access Denied: User not found.' });
+      }
+      if (rows[0].is_blocked) {
+        await logAudit('LOGIN_FAILED', cleanEmail, 'Account blocked', ip, ua);
+        return res.status(403).json({ error: 'Access Denied: Your account has been blocked.' });
+      }
       const storedPassword = rows[0].password ?? rows[0].password_hash ?? '';
-      if (storedPassword !== cleanPassword) return res.status(401).json({ error: 'Access Denied: Invalid password.' });
-      return res.json({ success: true, email: rows[0].email });
+      if (storedPassword !== cleanPassword) {
+        await logAudit('LOGIN_FAILED', cleanEmail, 'Invalid password', ip, ua);
+        return res.status(401).json({ error: 'Access Denied: Invalid password.' });
+      }
+      await logAudit('LOGIN_SUCCESS', rows[0].email, 'Authenticated successfully', ip, ua);
+      return res.json({ success: true, email: rows[0].email, role: rows[0].role });
     } else {
       const user = memoryStore.users.find(u => String(u.email).toLowerCase() === cleanEmail);
-      if (!user) return res.status(401).json({ error: 'Access Denied: User not found.' });
-      if (String(user.password) !== cleanPassword) return res.status(401).json({ error: 'Access Denied: Invalid password.' });
-      return res.json({ success: true, email: user.email });
+      if (!user) {
+        await logAudit('LOGIN_FAILED', cleanEmail, 'User not found (memory)', ip, ua);
+        return res.status(401).json({ error: 'Access Denied: User not found.' });
+      }
+      if (user.is_blocked) {
+        await logAudit('LOGIN_FAILED', cleanEmail, 'Account blocked (memory)', ip, ua);
+        return res.status(403).json({ error: 'Access Denied: Your account has been blocked.' });
+      }
+      if (String(user.password) !== cleanPassword) {
+        await logAudit('LOGIN_FAILED', cleanEmail, 'Invalid password (memory)', ip, ua);
+        return res.status(401).json({ error: 'Access Denied: Invalid password.' });
+      }
+      await logAudit('LOGIN_SUCCESS', user.email, 'Authenticated successfully (memory)', ip, ua);
+      return res.json({ success: true, email: user.email, role: user.role });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/session-restored', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required.' });
+  const ip = getClientIp(req);
+  const ua = req.headers['user-agent'] || 'unknown';
+  await logAudit('LOGIN_SUCCESS', String(email).trim().toLowerCase(), 'Session restored (already logged in)', ip, ua);
+  res.json({ success: true });
+});
+
+// --- USERS ---
+app.get('/api/users', async (req, res) => {
+  try {
+    if (isDbConnected) {
+      const { rows } = await pool.query(
+        `SELECT email, role, is_blocked, created_at FROM users ORDER BY created_at ASC`
+      );
+      res.json(rows);
+    } else {
+      res.json(memoryStore.users.map(({ password: _, ...u }) => u));
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/users', async (req, res) => {
+  const { email, password, role } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
+  const cleanEmail = String(email).trim().toLowerCase();
+  const cleanRole  = role || 'user';
+  const ip         = getClientIp(req);
+  const ua         = req.headers['user-agent'] || 'unknown';
+  const adminEmail = req.headers['x-admin-email'] as string || null;
+  
+  try {
+    if (isDbConnected) {
+      const existing = await pool.query('SELECT email FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+      if (existing.rows.length > 0) {
+        await logAudit('USER_CREATE_FAILED', adminEmail, `Attempted to create duplicate user: ${cleanEmail}`, ip, ua);
+        return res.status(409).json({ error: 'A user with this email already exists.' });
+      }
+      const { rows } = await pool.query(
+        `INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING email, role, is_blocked, created_at`,
+        [cleanEmail, String(password).trim(), cleanRole]
+      );
+      await logAudit('USER_CREATED', adminEmail, `New user created: ${cleanEmail} with role: ${cleanRole}`, ip, ua);
+      res.json(rows[0]);
+    } else {
+      if (memoryStore.users.find(u => u.email === cleanEmail)) {
+        await logAudit('USER_CREATE_FAILED', adminEmail, `Attempted to create duplicate user: ${cleanEmail}`, ip, ua);
+        return res.status(409).json({ error: 'A user with this email already exists.' });
+      }
+      const newUser = { email: cleanEmail, password: String(password).trim(), role: cleanRole, is_blocked: false, created_at: new Date().toISOString() };
+      memoryStore.users.push(newUser);
+      await logAudit('USER_CREATED', adminEmail, `New user created: ${cleanEmail} with role: ${cleanRole}`, ip, ua);
+      const { password: _, ...safe } = newUser;
+      res.json(safe);
+    }
+  } catch (err: any) {
+    await logAudit('USER_CREATE_ERROR', adminEmail, `Error creating user: ${err.message}`, ip, ua);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/users/:email/block', async (req, res) => {
+  const email      = decodeURIComponent(req.params.email).toLowerCase();
+  const is_blocked = Boolean(req.body.is_blocked);
+  const ip         = getClientIp(req);
+  const ua         = req.headers['user-agent'] || 'unknown';
+  const adminEmail = req.headers['x-admin-email'] as string || null;
+  
+  try {
+    if (isDbConnected) {
+      await pool.query('UPDATE users SET is_blocked = $1 WHERE LOWER(email) = $2', [is_blocked, email]);
+    } else {
+      const u = memoryStore.users.find(u => u.email === email);
+      if (u) u.is_blocked = is_blocked;
+    }
+    const action = is_blocked ? 'USER_BLOCKED' : 'USER_UNBLOCKED';
+    const details = is_blocked ? `User blocked: ${email}` : `User unblocked: ${email}`;
+    await logAudit(action, adminEmail, details, ip, ua);
+    res.json({ success: true, email, is_blocked });
+  } catch (err: any) {
+    await logAudit('USER_BLOCK_ERROR', adminEmail, `Error blocking/unblocking user: ${err.message}`, ip, ua);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/users/:email', async (req, res) => {
+  const email = decodeURIComponent(req.params.email).toLowerCase();
+  const ip    = getClientIp(req);
+  const ua    = req.headers['user-agent'] || 'unknown';
+  const adminEmail = req.headers['x-admin-email'] as string || null;
+  
+  try {
+    if (isDbConnected) {
+      await pool.query('DELETE FROM users WHERE LOWER(email) = $1', [email]);
+    } else {
+      memoryStore.users = memoryStore.users.filter(u => u.email !== email);
+    }
+    await logAudit('USER_DELETED', adminEmail, `User deleted: ${email}`, ip, ua);
+    res.json({ success: true, email });
+  } catch (err: any) {
+    await logAudit('USER_DELETE_ERROR', adminEmail, `Error deleting user: ${err.message}`, ip, ua);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- AUDIT LOGS ---
+app.get('/api/audit-logs', async (req, res) => {
+  const limit  = Math.min(parseInt(String(req.query.limit  || '200')), 500);
+  const offset = parseInt(String(req.query.offset || '0'));
+
+  try {
+    if (isDbConnected) {
+      const { rows } = await pool.query(
+        `SELECT id, user_email, action, details, ip_address, user_agent, created_at
+         FROM audit_logs
+         ORDER BY created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      );
+      const countResult = await pool.query('SELECT COUNT(*) FROM audit_logs');
+      res.json({ logs: rows, total: parseInt(countResult.rows[0].count) });
+    } else {
+      const slice = memoryStore.auditLogs.slice(offset, offset + limit);
+      res.json({ logs: slice, total: memoryStore.auditLogs.length });
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -534,7 +743,6 @@ app.post('/api/materials', async (req, res) => {
   const {
     id, name, type, company, deptNum, officeNum, materialNum,
     codification, status, serialNumber, purchaseDate, cost, notes,
-    // ── NEW ──
     condition,
     assignedNodeId
   } = req.body;
@@ -575,7 +783,6 @@ app.post('/api/materials', async (req, res) => {
           purchaseDate || null,
           parseFloat(cost) || 0,
           notes        || null,
-          // ── NEW: default to 'Bon' if not provided ──
           condition    || 'Bon',
           assignedNodeId || null
         ]
@@ -639,14 +846,12 @@ app.get('/api/puces', async (req, res) => {
 app.post('/api/puces', async (req, res) => {
   const { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, assignedNodeId, contractCompany } = req.body;
 
-  // ── assignedNodeId removed from required check ──
   if (!id || !serialNumber || !phoneNumber || !pukCode || !status || !contractCompany) {
     return res.status(400).json({ error: 'Missing required puce fields.' });
   }
 
   try {
     if (isDbConnected) {
-      // ── only validate node if one was actually provided ──
       if (assignedNodeId) {
         const nodeCheck = await pool.query('SELECT id FROM sub_nodes WHERE id = $1', [assignedNodeId]);
         if (nodeCheck.rows.length === 0) {
@@ -670,19 +875,14 @@ app.post('/api/puces', async (req, res) => {
            contract_company AS "contractCompany",
            assigned_node_id AS "assignedNodeId"`,
         [
-          id,
-          serialNumber,
-          phoneNumber,
-          pukCode,
+          id, serialNumber, phoneNumber, pukCode,
           parseFloat(monthlyCredit) || 0,
-          status,
-          contractCompany,
-          assignedNodeId || null  // ── null = puce vierge ──
+          status, contractCompany,
+          assignedNodeId || null
         ]
       );
       res.json(rows[0]);
     } else {
-      // ── memory fallback ──
       const idx = memoryStore.puces.findIndex(p => p.id === id);
       const payload = {
         id, serialNumber, phoneNumber, pukCode,

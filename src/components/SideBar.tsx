@@ -1,15 +1,14 @@
 import React from 'react';
 import { Department } from '../types';
 import { useTranslation } from 'react-i18next';
-import * as LucideIcons from 'lucide-react';
-import { Network, Coins, Users, Cpu, Truck, Briefcase, Camera, Heart, Settings, FileSpreadsheet, ShieldAlert, Globe2, Smartphone } from 'lucide-react';
+import { Network, Coins, Users, Cpu, Truck, Briefcase, Camera, Settings, FileSpreadsheet, ShieldAlert, Globe2, Smartphone } from 'lucide-react';
 
 interface SidebarProps {
   departments: Department[];
   selectedDeptId: string;
   onSelectDept: (id: string) => void;
-  selectedUtility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports';
-  onSelectUtility: (utility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports') => void;
+  selectedUtility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit';
+  onSelectUtility: (utility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit') => void;
 }
 
 export default function Sidebar({
@@ -20,28 +19,46 @@ export default function Sidebar({
   onSelectUtility
 }: SidebarProps) {
   const { t } = useTranslation();
-  
-  // Resolve Lucide Icon component dynamically based on string
+
   const renderIcon = (iconName: string, className: string) => {
     switch (iconName) {
       case 'Network': return <Network className={className} />;
-      case 'Coins': return <Coins className={className} />;
-      case 'Users': return <Users className={className} />;
-      case 'Cpu': return <Cpu className={className} />;
-      case 'Truck': return <Truck className={className} />;
-      default: return <Briefcase className={className} />;
+      case 'Coins':   return <Coins   className={className} />;
+      case 'Users':   return <Users   className={className} />;
+      case 'Cpu':     return <Cpu     className={className} />;
+      case 'Truck':   return <Truck   className={className} />;
+      default:        return <Briefcase className={className} />;
     }
+  };
+
+  const utilityBtn = (
+    key: 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit',
+    label: string,
+    Icon: React.ElementType
+  ) => {
+    const active = selectedUtility === key;
+    return (
+      <button
+        onClick={() => onSelectUtility(key)}
+        className={`w-full py-2 px-3 rounded-md text-sm font-medium tracking-wide transition-all duration-150 flex items-center gap-2.5 cursor-pointer ${
+          active
+            ? 'bg-[#FF1E1E]/8 text-[#FF1E1E] font-semibold border border-[#FF1E1E]/15 shadow-sm'
+            : 'hover:bg-[#F5F5F7] text-[#424245] border border-transparent hover:text-[#1D1D1F]'
+        }`}
+      >
+        <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
+        <span>{label}</span>
+      </button>
+    );
   };
 
   return (
     <aside className="w-full md:w-64 bg-white text-[#424245] flex flex-col h-auto md:h-screen md:sticky md:top-0 top-0 shrink-0 border-r border-[#D2D2D7]">
-      
+
       {/* BRAND HEADER */}
       <div className="p-5 border-b border-[#F5F5F7] flex flex-col gap-3 bg-linear-to-b from-slate-50/50 to-white">
         <div className="flex items-center gap-3">
-          <div className="relative shrink-0 flex items-center justify-center">
-
-          </div>
+          <div className="relative shrink-0 flex items-center justify-center" />
           <div>
             <h1 className="text-[10px] font-black text-[#1D1D1F] tracking-[0.16em] uppercase leading-none font-display">
               TECHNOCERAM
@@ -56,66 +73,27 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* CORE UTILITIES / WORKSPACE SECTOR */}
+      {/* CORE UTILITIES */}
       <div className="p-4 space-y-1 select-none">
         <span className="px-3 text-[11px] font-semibold text-[#86868B] uppercase tracking-wider block mb-2">
           {t('utilities')}
         </span>
 
-        {/* 1. Barcode Scanner tab */}
-        <button
-          onClick={() => onSelectUtility('scanner')}
-          className={`w-full py-2 px-3 rounded-md text-sm font-medium tracking-wide transition-all duration-150 flex items-center gap-2.5 cursor-pointer ${
-            selectedUtility === 'scanner'
-              ? 'bg-[#FF1E1E]/8 text-[#FF1E1E] font-semibold border border-[#FF1E1E]/15 shadow-sm'
-              : 'hover:bg-[#F5F5F7] text-[#424245] border border-transparent hover:text-[#1D1D1F]'
-          }`}
-        >
-          <Camera className={`w-4 h-4 shrink-0 ${selectedUtility === 'scanner' ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
-          <span>{t('qr_scanner')}</span>
-        </button>
+        {utilityBtn('scanner',      t('qr_scanner'),        Camera)}
+        {utilityBtn('management',   t('user_infrastructure'), Settings)}
+        {utilityBtn('reports',      t('inventory_reports'), FileSpreadsheet)}
+        {utilityBtn('puce_reports', t('puce_reports'),      Smartphone)}
 
-        {/* 2. Management & User tools */}
-        <button
-          onClick={() => onSelectUtility('management')}
-          className={`w-full py-2 px-3 rounded-md text-sm font-medium tracking-wide transition-all duration-150 flex items-center gap-2.5 cursor-pointer ${
-            selectedUtility === 'management'
-              ? 'bg-[#FF1E1E]/8 text-[#FF1E1E] font-semibold border border-[#FF1E1E]/15 shadow-sm'
-              : 'hover:bg-[#F5F5F7] text-[#424245] border border-transparent hover:text-[#1D1D1F]'
-          }`}
-        >
-          <Settings className={`w-4 h-4 shrink-0 ${selectedUtility === 'management' ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
-          <span>{t('user_infrastructure')}</span>
-        </button>
+        {/* Divider */}
+        <div className="pt-2 pb-1">
+          <div className="h-px bg-[#F0F0F0]" />
+        </div>
 
-        {/* 3. Reports Tab */}
-        <button
-          onClick={() => onSelectUtility('reports')}
-          className={`w-full py-2 px-3 rounded-md text-sm font-medium tracking-wide transition-all duration-150 flex items-center gap-2.5 cursor-pointer ${
-            selectedUtility === 'reports'
-              ? 'bg-[#FF1E1E]/8 text-[#FF1E1E] font-semibold border border-[#FF1E1E]/15 shadow-sm'
-              : 'hover:bg-[#F5F5F7] text-[#424245] border border-transparent hover:text-[#1D1D1F]'
-          }`}
-        >
-          <FileSpreadsheet className={`w-4 h-4 shrink-0 ${selectedUtility === 'reports' ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
-          <span>{t('inventory_reports')}</span>
-        </button>
-
-        {/* 4. Puce Reports Tab */}
-        <button
-          onClick={() => onSelectUtility('puce_reports')}
-          className={`w-full py-2 px-3 rounded-md text-sm font-medium tracking-wide transition-all duration-150 flex items-center gap-2.5 cursor-pointer ${
-            selectedUtility === 'puce_reports'
-              ? 'bg-[#FF1E1E]/8 text-[#FF1E1E] font-semibold border border-[#FF1E1E]/15 shadow-sm'
-              : 'hover:bg-[#F5F5F7] text-[#424245] border border-transparent hover:text-[#1D1D1F]'
-          }`}
-        >
-          <Smartphone className={`w-4 h-4 shrink-0 ${selectedUtility === 'puce_reports' ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
-          <span>{t('puce_reports')}</span>
-        </button>
+        {/* Audit Logs — admin tool, visually separated */}
+        {utilityBtn('audit', 'Security & Users', ShieldAlert)}
       </div>
 
-      {/* COMPARTMENTS CATEGORIES SECTOR */}
+      {/* DEPARTMENTS */}
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
         <div className="flex items-center justify-between px-3 mb-2">
           <span className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wider block">
@@ -163,7 +141,7 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* FOOTER METADATA */}
+      {/* FOOTER */}
       <div className="p-4 border-t border-[#F5F5F7] bg-[#F5F5F7]/40 text-[10px] space-y-1 text-[#86868B] select-none">
         <div className="flex items-center gap-1.5">
           <Globe2 className="w-3.5 h-3.5 text-[#86868B]" />

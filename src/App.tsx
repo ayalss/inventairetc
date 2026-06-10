@@ -23,6 +23,7 @@ import ReportsTab from './components/ReportsTab';
 import PuceReportsTab from './components/PuceReportsTab';
 import ManagementTab from './components/ManagementTab';
 import LoginPage from './components/LoginPage.tsx';
+import UserManagementTab from './components/UserManagementTab';
 import { RefreshCw, HelpCircle, UserCheck, ShieldAlert, Heart, Calendar, LogOut } from 'lucide-react';
 
 export default function App() {
@@ -30,6 +31,8 @@ export default function App() {
   const [authenticatedUserEmail, setAuthenticatedUserEmail] = useState<string | null>(() => {
     return localStorage.getItem('erp_authenticated_user') || null;
   });
+  
+  const wasAlreadyLoggedIn = React.useRef(!!localStorage.getItem('erp_authenticated_user'));
 
   const [dbStatus, setDbStatus] = useState<{
     connected: boolean;
@@ -47,7 +50,7 @@ export default function App() {
   const [puces,       setPuces]       = useState<Puce[]>([]);
 
   const [selectedDeptId,    setSelectedDeptId]    = useState<string>('');
-  const [selectedUtility,   setSelectedUtility]   = useState<'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports'>('portal');
+  const [selectedUtility,   setSelectedUtility]   = useState<'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit'>('portal');
   const [selectedAssetFromScanner, setSelectedAssetFromScanner] = useState<Material | null>(null);
   const [showResetConfirm,  setShowResetConfirm]  = useState(false);
 
@@ -96,7 +99,17 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (authenticatedUserEmail) syncDatabaseState();
+    if (authenticatedUserEmail) {
+      syncDatabaseState();
+      if (wasAlreadyLoggedIn.current) {
+        wasAlreadyLoggedIn.current = false;
+        fetch('/api/auth/session-restored', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: authenticatedUserEmail }),
+        }).catch(err => console.error('Failed to log session restore:', err));
+      }
+    }
   }, [authenticatedUserEmail]);
 
   // ── DB Reset handlers ─────────────────────────────────────────────────────
@@ -445,7 +458,7 @@ export default function App() {
     }
     setSelectedAssetFromScanner(mat);
     setSelectedUtility('portal');
-  };
+  };                                                                
 
   if (!authenticatedUserEmail) {
     return (
@@ -623,6 +636,10 @@ export default function App() {
               subNodes={subNodes}
               managers={managers}
             />
+          )}
+
+          {!isLoading && selectedUtility === 'audit' && (
+            <UserManagementTab adminEmail={authenticatedUserEmail} />
           )}
         </main>
       </div>
