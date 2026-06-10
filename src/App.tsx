@@ -216,7 +216,7 @@ export default function App() {
     const affectedSubNodeIds = subNodes.filter(n => affectedManagerIds.includes(n.managerId)).map(n => n.id);
     setSubNodes(prev => prev.filter(n => !affectedManagerIds.includes(n.managerId)));
     setMaterials(prev => prev.filter(m => !affectedSubNodeIds.includes(m.assignedNodeId)));
-    setPuces(prev => prev.filter(p => !affectedSubNodeIds.includes(p.assignedNodeId)));
+    setPuces(prev => prev.filter(p => !p.assignedNodeId || !affectedSubNodeIds.includes(p.assignedNodeId)));
     try {
       await fetch(`/api/departments/${id}`, { method: 'DELETE' });
     } catch (err) {
@@ -268,7 +268,7 @@ export default function App() {
     const affectedSubNodeIds = subNodes.filter(n => n.managerId === id).map(n => n.id);
     setSubNodes(prev => prev.filter(n => n.managerId !== id));
     setMaterials(prev => prev.filter(m => !affectedSubNodeIds.includes(m.assignedNodeId)));
-    setPuces(prev => prev.filter(p => !affectedSubNodeIds.includes(p.assignedNodeId)));
+    setPuces(prev => prev.filter(p => !p.assignedNodeId || !affectedSubNodeIds.includes(p.assignedNodeId)));
     try {
       await fetch(`/api/managers/${id}`, { method: 'DELETE' });
     } catch (err) {
@@ -318,7 +318,7 @@ export default function App() {
   const handleDeleteSubNode = async (id: string) => {
     setSubNodes(prev => prev.filter(n => n.id !== id));
     setMaterials(prev => prev.filter(m => m.assignedNodeId !== id));
-    setPuces(prev => prev.filter(p => p.assignedNodeId !== id));
+    setPuces(prev => prev.filter(p => !p.assignedNodeId || p.assignedNodeId !== id));
     try {
       const res = await fetch(`/api/subnodes/${id}`, { method: 'DELETE' });
       if (!res.ok) {
@@ -454,7 +454,7 @@ export default function App() {
           setAuthenticatedUserEmail(email);
           localStorage.setItem('erp_authenticated_user', email);
         }}
-        defaultEmail="ayalounis679@gmail.com"
+        defaultEmail="ayalss@gmail.com"
       />
     );
   }

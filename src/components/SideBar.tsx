@@ -34,7 +34,7 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="w-full md:w-64 bg-white text-[#424245] flex flex-col h-150 md:h-screen sticky top-0 shrink-0 border-r border-[#D2D2D7]">
+    <aside className="w-full md:w-64 bg-white text-[#424245] flex flex-col h-auto md:h-screen md:sticky md:top-0 top-0 shrink-0 border-r border-[#D2D2D7]">
       
       {/* BRAND HEADER */}
       <div className="p-5 border-b border-[#F5F5F7] flex flex-col gap-3 bg-linear-to-b from-slate-50/50 to-white">

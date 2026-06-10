@@ -48,7 +48,7 @@ const memoryStore = {
   materials:   [...INITIAL_MATERIALS]   as any[],
   puces:        [] as any[],
   users: [
-    { email: 'ayalounis679@gmail.com', password: 'luxury', role: 'admin' }
+    { email: 'ayalss@gmail.com', password: 'aya', role: 'admin' }
   ] as any[]
 };
 
@@ -136,7 +136,7 @@ async function checkAndInitializeDatabase() {
     const userCount = await client.query('SELECT COUNT(*) FROM users');
     if (parseInt(userCount.rows[0].count) === 0) {
       await client.query(
-        "INSERT INTO users (email, password, role) VALUES ('ayalounis679@gmail.com', 'luxury', 'admin')"
+        "INSERT INTO users (email, password, role) VALUES ('ayalss@gmail.com', 'luxury', 'admin')"
       );
       console.log('[POSTGRES] Admin user seeded.');
     }
@@ -639,15 +639,19 @@ app.get('/api/puces', async (req, res) => {
 app.post('/api/puces', async (req, res) => {
   const { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, assignedNodeId, contractCompany } = req.body;
 
-  if (!id || !serialNumber || !phoneNumber || !pukCode || !status || !assignedNodeId || !contractCompany) {
+  // ── assignedNodeId removed from required check ──
+  if (!id || !serialNumber || !phoneNumber || !pukCode || !status || !contractCompany) {
     return res.status(400).json({ error: 'Missing required puce fields.' });
   }
 
   try {
     if (isDbConnected) {
-      const nodeCheck = await pool.query('SELECT id FROM sub_nodes WHERE id = $1', [assignedNodeId]);
-      if (nodeCheck.rows.length === 0) {
-        return res.status(400).json({ error: `Sub-node "${assignedNodeId}" does not exist in the database.` });
+      // ── only validate node if one was actually provided ──
+      if (assignedNodeId) {
+        const nodeCheck = await pool.query('SELECT id FROM sub_nodes WHERE id = $1', [assignedNodeId]);
+        if (nodeCheck.rows.length === 0) {
+          return res.status(400).json({ error: `Sub-node "${assignedNodeId}" does not exist in the database.` });
+        }
       }
 
       const { rows } = await pool.query(
@@ -673,14 +677,19 @@ app.post('/api/puces', async (req, res) => {
           parseFloat(monthlyCredit) || 0,
           status,
           contractCompany,
-          assignedNodeId
+          assignedNodeId || null  // ── null = puce vierge ──
         ]
       );
-
       res.json(rows[0]);
     } else {
+      // ── memory fallback ──
       const idx = memoryStore.puces.findIndex(p => p.id === id);
-      const payload = { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, contractCompany, assignedNodeId };
+      const payload = {
+        id, serialNumber, phoneNumber, pukCode,
+        monthlyCredit: parseFloat(monthlyCredit) || 0,
+        status, contractCompany,
+        assignedNodeId: assignedNodeId || null
+      };
       if (idx > -1) memoryStore.puces[idx] = payload;
       else memoryStore.puces.push(payload);
       res.json(payload);

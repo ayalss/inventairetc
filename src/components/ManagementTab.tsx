@@ -106,13 +106,15 @@ export default function ManagementTab({
   const [matNodeId,    setMatNodeId]    = useState(subNodes[0]?.id || '');
   const [matNotes,     setMatNotes]     = useState('');
 
+  // ─── Puce form state ───────────────────────────────────────────────────────
   const [puceSerial,   setPuceSerial]   = useState('');
   const [pucePhone,    setPucePhone]    = useState('');
   const [pucePuk,      setPucePuk]      = useState('');
   const [puceCredit,   setPuceCredit]   = useState('');
   const [puceStatus,   setPuceStatus]   = useState<'Active' | 'Suspended'>('Active');
   const [puceContract, setPuceContract] = useState<'TC' | 'LX' | 'PL'>('TC');
-  const [puceNodeId,   setPuceNodeId]   = useState(subNodes[0]?.id || '');
+  // '' = puce vierge (unassigned), otherwise a subNode id
+  const [puceNodeId,   setPuceNodeId]   = useState('');
 
   const triggerSuccess = (msg: string) => {
     setShowSuccessToast(msg);
@@ -196,13 +198,11 @@ export default function ManagementTab({
     setMatNodeId(subNodes[0]?.id || '');
   };
 
+  // ─── Puce submit — assignedNodeId is optional (puce vierge allowed) ────────
   const handlePuceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!puceSerial || !pucePhone || !pucePuk) return;
-    const activeNodeId = puceNodeId || subNodes[0]?.id;
-    if (!activeNodeId) { alert('Please select a valid infrastructure office sub-node location.'); return; }
-    const targetNode = subNodes.find(n => n.id === activeNodeId);
-    if (!targetNode) { alert('Selected office location node not found.'); return; }
+
     const newPuce: Puce = {
       id: `puce-${Date.now()}`,
       serialNumber: puceSerial.trim(),
@@ -211,14 +211,19 @@ export default function ManagementTab({
       monthlyCredit: Number(puceCredit) || 0,
       status: puceStatus,
       contractCompany: puceContract,
-      assignedNodeId: activeNodeId
+      // undefined when no node selected → puce vierge
+      // FIXED — explicit cast satisfies TS regardless of types.ts state
+assignedNodeId: (puceNodeId || undefined) as string,
     };
     onAddPuce(newPuce);
-    triggerSuccess(`Puce ${newPuce.phoneNumber} registered under ${targetNode.name}`);
+    const locationLabel = puceNodeId
+      ? (subNodes.find(n => n.id === puceNodeId)?.name || puceNodeId)
+      : 'Non affectée';
+    triggerSuccess(`Puce ${newPuce.phoneNumber} enregistrée — ${locationLabel}`);
     setPuceSerial(''); setPucePhone(''); setPucePuk(''); setPuceCredit('');
     setPuceStatus('Active');
     setPuceContract('TC');
-    setPuceNodeId(subNodes[0]?.id || '');
+    setPuceNodeId(''); // reset to unassigned
   };
 
   const handleEditSave = (e: React.FormEvent) => {
@@ -493,7 +498,6 @@ export default function ManagementTab({
                       </select>
                     </div>
                   </div>
-                  {/* État (condition) */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">État</label>
                     <div className="grid grid-cols-2 gap-2">
@@ -530,9 +534,6 @@ export default function ManagementTab({
                       value={matDate} onChange={(e) => setMatDate(e.target.value)} />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
-                      <span className="ml-1 text-[#FF1E1E] font-black"></span>
-                    </label>
                     <textarea rows={3} placeholder="e.g. Processeur: AMD RYZEN 7 8845HS @5.1GHz&#10;RAM: 16Gb DDR5&#10;Disque: 1Tb SSD"
                       className="w-full text-xs px-3.5 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
                       value={matNotes} onChange={(e) => setMatNotes(e.target.value)} />
@@ -550,90 +551,110 @@ export default function ManagementTab({
           {activeForm === 'puce' && (
             <form onSubmit={handlePuceSubmit} className="space-y-4">
               <div className="border-b border-slate-150 pb-3">
-                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2"><Smartphone className="text-[#FF1E1E] w-4.5 h-4.5" />Add New Puce</h4>
-                <p className="text-[11px] text-[#86868B] mt-1">Registers SIM cards under the same office, desk, or person nodes.</p>
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2">
+                  <Smartphone className="text-[#FF1E1E] w-4.5 h-4.5" />Add New Puce
+                </h4>
+                <p className="text-[11px] text-[#86868B] mt-1">
+                  Registers SIM cards. Location is optional — leave blank to create a <span className="font-bold text-amber-600">puce Non affectée</span> and assign it later.
+                </p>
               </div>
-              {subNodes.length === 0 ? (
-                <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                  <div className="text-xs text-rose-800"><p className="font-bold">No Office Sub-Nodes Found</p><p className="mt-1">Create a Desk/Office card first.</p></div>
+
+              {/* ── Location — optional ── */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
+                  Infrastructure Location
+                  <span className="ml-1.5 normal-case font-normal text-slate-400">(optional)</span>
+                </label>
+                <select
+                  className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                  value={puceNodeId}
+                  onChange={(e) => setPuceNodeId(e.target.value)}
+                >
+                  <option value="">— Non affectée —</option>
+                  {subNodes.map((node) => {
+                    const mng = managers.find(m => m.id === node.managerId);
+                    return (
+                      <option key={node.id} value={node.id}>
+                        {node.name} (Office {node.officeNum} — {mng ? mng.name : 'Unknown'})
+                      </option>
+                    );
+                  })}
+                </select>
+                {/* visual hint when nothing selected */}
+                {!puceNodeId && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-600 font-semibold">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    Aucun utilisateur — vous pourrez affecter cette puce plus tard via Modifier.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">S/N</label>
+                  <input type="text" required placeholder="e.g. SIM-000123"
+                    className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                    value={puceSerial} onChange={(e) => setPuceSerial(e.target.value)} />
                 </div>
-              ) : (
-                <>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Infrastructure Location (Office/Desk)</label>
-                    <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
-                      value={puceNodeId} onChange={(e) => setPuceNodeId(e.target.value)}>
-                      {subNodes.map((node) => {
-                        const mng = managers.find(m => m.id === node.managerId);
-                        return <option key={node.id} value={node.id}>{node.name} (Office {node.officeNum} - {mng ? mng.name : 'Unknown'})</option>;
-                      })}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">S/N</label>
-                      <input type="text" required placeholder="e.g. SIM-000123"
-                        className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
-                        value={puceSerial} onChange={(e) => setPuceSerial(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">N tel</label>
-                      <input type="tel" required placeholder="e.g. 0550 00 00 00"
-                        className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
-                        value={pucePhone} onChange={(e) => setPucePhone(e.target.value)} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Code PUK</label>
-                    <input type="text" required placeholder="e.g. 12345678"
-                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
-                      value={pucePuk} onChange={(e) => setPucePuk(e.target.value)} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Credit par mois (DA)</label>
-                      <input type="number" placeholder="e.g. 1000"
-                        className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
-                        value={puceCredit} onChange={(e) => setPuceCredit(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Etat</label>
-                      <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
-                        value={puceStatus} onChange={(e) => setPuceStatus(e.target.value as any)}>
-                        <option value="Active">Actif</option>
-                        <option value="Suspended">Suspendu</option>
-                      </select>
-                    </div>
-                  </div>
-                  {/* Contrat Ooredoo */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
-                      Contrat Ooredoo <span className="text-[#FF1E1E]">*</span>
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['TC', 'LX', 'PL'] as const).map((co) => (
-                        <button key={co} type="button"
-                          onClick={() => setPuceContract(co)}
-                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
-                            puceContract === co
-                              ? 'bg-slate-900 text-white shadow-xs'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
-                          }`}>
-                          {co}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-[10px] text-[#86868B] mt-1">
-                      Whose Ooredoo contract this SIM is billed under — independent of where it's physically used.
-                    </p>
-                  </div>
-                  <button type="submit"
-                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2">
-                    <Plus className="w-4 h-4 text-[#FF1E1E]" />Register Puce
-                  </button>
-                </>
-              )}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">N° tel</label>
+                  <input type="tel" required placeholder="e.g. 0550 00 00 00"
+                    className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                    value={pucePhone} onChange={(e) => setPucePhone(e.target.value)} />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Code PUK</label>
+                <input type="text" required placeholder="e.g. 12345678"
+                  className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
+                  value={pucePuk} onChange={(e) => setPucePuk(e.target.value)} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Crédit / mois (DA)</label>
+                  <input type="number" placeholder="e.g. 1000"
+                    className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                    value={puceCredit} onChange={(e) => setPuceCredit(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">État</label>
+                  <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                    value={puceStatus} onChange={(e) => setPuceStatus(e.target.value as any)}>
+                    <option value="Active">Actif</option>
+                    <option value="Suspended">Suspendu</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
+                  Contrat Ooredoo <span className="text-[#FF1E1E]">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['TC', 'LX', 'PL'] as const).map((co) => (
+                    <button key={co} type="button"
+                      onClick={() => setPuceContract(co)}
+                      className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                        puceContract === co
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}>
+                      {co}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-[#86868B] mt-1">
+                  Whose Ooredoo contract this SIM is billed under — independent of where it's physically used.
+                </p>
+              </div>
+
+              <button type="submit"
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2">
+                <Plus className="w-4 h-4 text-[#FF1E1E]" />
+                {puceNodeId ? 'Register Puce' : 'Register SIM CARD Non affectée'}
+              </button>
             </form>
           )}
 
@@ -883,7 +904,7 @@ export default function ManagementTab({
                       </div>
                       <span className="text-[11px] font-semibold text-slate-800 block truncate mt-0.5">{m.name}</span>
                       <span className="text-[10px] text-[#86868B] block truncate">
-                        {node ? node.name : 'Unknown Desk'} • S/N: {m.serialNumber} • ${m.cost}
+                        {node ? node.name : 'Unknown Desk'} • S/N: {m.serialNumber} • {m.cost.toLocaleString()} DA
                       </span>
                       {m.notes && (
                         <span className="text-[9.5px] text-slate-400 italic block truncate mt-0.5">
@@ -909,17 +930,20 @@ export default function ManagementTab({
             {/* PUCES */}
             {inspectorTab === 'puces' && (
               getFilteredPuces().length > 0 ? getFilteredPuces().map((p) => {
-                const node = subNodes.find(n => n.id === p.assignedNodeId);
+                const node = p.assignedNodeId ? subNodes.find(n => n.id === p.assignedNodeId) : null;
+                const isVierge = !p.assignedNodeId;
                 return (
                   <div key={p.id}
-                    className="flex justify-between items-center p-3.5 rounded-2xl border transition-colors gap-3 bg-slate-50 border-[#D2D2D7]/40 hover:bg-slate-100/40">
+                    className={`flex justify-between items-center p-3.5 rounded-2xl border transition-colors gap-3 ${isVierge ? 'bg-amber-50/60 border-amber-200/70' : 'bg-slate-50 border-[#D2D2D7]/40 hover:bg-slate-100/40'}`}>
                     <div className="shrink-0 w-8 h-8 rounded-xl bg-[#FF1E1E]/10 text-[#FF1E1E] flex items-center justify-center">
                       <Smartphone className="w-4 h-4" />
                     </div>
                     <div className="truncate min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono font-bold text-slate-950 text-xs tracking-wide">{p.phoneNumber}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${p.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF9500]/10 text-[#FF9500]'}`}>{p.status === 'Active' ? 'Actif' : 'Suspendu'}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${p.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF9500]/10 text-[#FF9500]'}`}>
+                          {p.status === 'Active' ? 'Actif' : 'Suspendu'}
+                        </span>
                         {p.contractCompany && (
                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border ${
                             p.contractCompany === 'TC' ? 'bg-red-100 text-red-700 border-red-200' :
@@ -929,17 +953,26 @@ export default function ManagementTab({
                             {p.contractCompany}
                           </span>
                         )}
+                        {/* Puce vierge badge */}
+                        {isVierge && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-0.5">
+                            <AlertTriangle className="w-2.5 h-2.5" />Non affectée
+                          </span>
+                        )}
                       </div>
                       <span className="text-[11px] font-semibold text-slate-800 block truncate mt-0.5">
-                        {node ? node.name : 'Unknown Desk'} - Credit/mois: {Number(p.monthlyCredit || 0).toLocaleString()} DA
+                        {isVierge
+                          ? <span className="italic text-amber-600">Non affectée — affecter via Modifier</span>
+                          : <>{node ? node.name : 'Unknown Desk'} — Crédit/mois : {Number(p.monthlyCredit || 0).toLocaleString()} DA</>
+                        }
                       </span>
                       <span className="text-[10px] text-[#86868B] block truncate">
-                        S/N: {p.serialNumber} - PUK: {p.pukCode}
+                        S/N : {p.serialNumber} — PUK : {p.pukCode}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button onClick={() => setEditingItem({ type: 'puce', id: p.id, data: { ...p } })}
-                        className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer">
+                        className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${isVierge ? 'bg-amber-50 text-amber-600 hover:bg-amber-100 border-amber-200' : 'bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 border-slate-200'}`}>
                         <Edit className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => { if (confirm(`Delete puce ${p.phoneNumber}?`)) { onDeletePuce(p.id); triggerSuccess(`Deleted puce "${p.phoneNumber}"`); } }}
@@ -1223,19 +1256,37 @@ export default function ManagementTab({
                 </div>
               )}
 
-              {/* EDIT PUCE */}
+              {/* EDIT PUCE — assignedNodeId is now optional */}
               {editingItem.type === 'puce' && (
                 <div className="space-y-3">
-                  <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Location Node</label>
-                    <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.assignedNodeId}
-                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, assignedNodeId: e.target.value } })}>
-                      {subNodes.map(s => <option key={s.id} value={s.id}>{s.name} (office {s.officeNum})</option>)}
-                    </select></div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">
+                      Location Node
+                      <span className="ml-1.5 normal-case font-normal text-slate-400">(optional — laisser vide = puce Non affectée)</span>
+                    </label>
+                    <select
+                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer"
+                      value={editingItem.data.assignedNodeId || ''}
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, assignedNodeId: e.target.value || undefined } })}
+                    >
+                      <option value="">— Non affectée —</option>
+                      {subNodes.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} (office {s.officeNum})</option>
+                      ))}
+                    </select>
+                    {/* hint when currently vierge */}
+                    {!editingItem.data.assignedNodeId && (
+                      <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600 font-semibold">
+                        <AlertTriangle className="w-3 h-3 shrink-0" />
+                        Puce non affectée — choisissez un utilisateur pour l'affecter.
+                      </p>
+                    )}
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">S/N</label>
                       <input type="text" required className="font-mono w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.serialNumber}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, serialNumber: e.target.value } })} /></div>
-                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">N tel</label>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">N° tel</label>
                       <input type="tel" required className="font-mono w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.phoneNumber}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, phoneNumber: e.target.value } })} /></div>
                   </div>
@@ -1243,17 +1294,16 @@ export default function ManagementTab({
                     <input type="text" required className="font-mono w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.pukCode}
                       onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, pukCode: e.target.value } })} /></div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Credit par mois (DA)</label>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Crédit / mois (DA)</label>
                       <input type="number" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.monthlyCredit}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, monthlyCredit: Number(e.target.value) } })} /></div>
-                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Etat</label>
+                    <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">État</label>
                       <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.status}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, status: e.target.value } })}>
                         <option value="Active">Actif</option>
                         <option value="Suspended">Suspendu</option>
                       </select></div>
                   </div>
-                  {/* Contrat Ooredoo — edit */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Contrat Ooredoo</label>
                     <div className="grid grid-cols-3 gap-2">
@@ -1316,7 +1366,6 @@ export default function ManagementTab({
                       <input type="text" required className="font-mono w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none bg-slate-100" value={editingItem.data.codification}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, codification: e.target.value } })} /></div>
                   </div>
-                  {/* État (condition) — edit */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">État</label>
                     <div className="grid grid-cols-2 gap-2">
@@ -1420,7 +1469,7 @@ export default function ManagementTab({
                     </div>
                     <div className="flex gap-4 md:text-right shrink-0">
                       <div><span className="text-[9px] text-slate-400 uppercase tracking-wider block">Dept ID Code</span><span className="text-xs font-bold font-mono">#{dept.deptNum}</span></div>
-                      <div><span className="text-[9px] text-slate-400 uppercase tracking-wider block">Valuation Total</span><span className="text-xs font-bold text-[#FF1E1E] font-mono">${totalValuation.toLocaleString()}</span></div>
+                      <div><span className="text-[9px] text-slate-400 uppercase tracking-wider block">Valuation Total</span><span className="text-xs font-bold text-[#FF1E1E] font-mono">{totalValuation.toLocaleString()} DA</span></div>
                     </div>
                   </div>
                   <div className="space-y-2.5">
@@ -1470,7 +1519,7 @@ export default function ManagementTab({
                                         <td className="p-2"><p className="font-bold">{m.name}</p><p className="text-[9px] text-gray-400">{m.notes || 'No remarks'}</p></td>
                                         <td className="p-2 text-center"><span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold ${m.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-slate-200 text-slate-700'}`}>{m.status.toUpperCase()}</span></td>
                                         <td className="p-2 font-mono text-slate-500">{m.serialNumber}</td>
-                                        <td className="p-2 text-right font-mono font-bold">${m.cost}</td>
+                                        <td className="p-2 text-right font-mono font-bold">{m.cost.toLocaleString()} DA</td>
                                       </tr>
                                     ))}
                                   </tbody>
