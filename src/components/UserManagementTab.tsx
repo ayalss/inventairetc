@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ShieldAlert, RefreshCw, CheckCircle2, XCircle, Monitor,
   ChevronLeft, ChevronRight, Search, UserPlus, Ban,
-  Unlock, Trash2, Users, Eye, EyeOff, Crown, User, UserCheck
+  Unlock, Trash2, Users, Eye, EyeOff, Crown, User, UserCheck,
+  Pencil, Save, X
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────
@@ -131,6 +132,151 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 // ─────────────────────────────────────────────
+// EDIT USER MODAL
+// ─────────────────────────────────────────────
+
+interface EditUserModalProps {
+  user: UserRow;
+  adminEmail: string | null;
+  onClose: () => void;
+  onSaved: (updated: UserRow) => void;
+}
+
+function EditUserModal({ user, adminEmail, onClose, onSaved }: EditUserModalProps) {
+  const [role, setRole] = useState(user.role);
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const body: Record<string, string> = { role };
+      if (newPassword.trim()) body.password = newPassword.trim();
+
+      const res = await fetch(`/api/users/${encodeURIComponent(user.email)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminEmail ? { 'x-admin-email': adminEmail } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update user.');
+      onSaved({ ...user, role });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Close on backdrop click
+  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={handleBackdrop}
+    >
+      <div className="bg-white border border-[#D2D2D7] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-5">
+
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-[#D2D2D7] flex items-center justify-center shrink-0">
+              <Pencil className="w-4 h-4 text-slate-600" />
+            </div>
+            <div>
+              <h3 className="text-xs font-black text-[#1D1D1F] uppercase tracking-wider">Edit Identity</h3>
+              <p className="text-[10px] text-[#86868B] font-mono mt-0.5 truncate max-w-[220px]">{user.email}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-[#86868B] hover:text-slate-900 hover:bg-[#F5F5F7] transition-all cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-500 flex items-center gap-2">
+            <XCircle className="w-4 h-4 shrink-0" /> {error}
+          </div>
+        )}
+
+        {/* Role */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">
+            Security Clearance Role
+          </label>
+          <select
+            value={role}
+            onChange={e => setRole(e.target.value)}
+            className="w-full px-3 py-2.5 bg-[#F5F5F7] border border-[#D2D2D7] rounded-xl text-xs text-[#1D1D1F] focus:outline-none focus:border-slate-400 transition-colors cursor-pointer font-medium"
+          >
+            <option value="user">User</option>
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        {/* New password (optional) */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">
+            New Password <span className="normal-case font-medium text-[#86868B]">(leave blank to keep current)</span>
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full pl-3 pr-9 py-2.5 bg-[#F5F5F7] border border-[#D2D2D7] rounded-xl text-xs text-[#1D1D1F] placeholder-[#86868B] focus:outline-none focus:border-slate-400 transition-colors font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(v => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#86868B] hover:text-slate-950 transition-colors cursor-pointer"
+            >
+              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+          >
+            {loading
+              ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              : <Save className="w-3.5 h-3.5" />
+            }
+            Save Changes
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#424245] rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────
 
@@ -145,6 +291,9 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
   const [users, setUsers] = useState<UserRow[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
+
+  // ── Edit modal state ──
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
 
   // ── Create user form ──
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -283,7 +432,6 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const filteredLogs = logs.filter(log => {
-    // 1. Category check
     let matchCategory = true;
     if (filterCategory === 'LOGINS') {
       matchCategory = log.action === 'LOGIN_SUCCESS' || log.action === 'LOGIN_FAILED';
@@ -293,7 +441,6 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
       matchCategory = log.action.endsWith('_FAILED') || log.action.endsWith('_ERROR') || log.action === 'LOGIN_FAILED';
     }
 
-    // 2. Text search check
     const q = search.toLowerCase();
     const matchSearch = !q ||
       (log.user_email || '').toLowerCase().includes(q) ||
@@ -309,6 +456,19 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
 
   return (
     <div className="space-y-6">
+
+      {/* ── Edit Modal ── */}
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          adminEmail={adminEmail}
+          onClose={() => setEditingUser(null)}
+          onSaved={(updated) => {
+            setUsers(prev => prev.map(u => u.email === updated.email ? updated : u));
+            setEditingUser(null);
+          }}
+        />
+      )}
 
       {/* ── Page Header ── */}
       <div className="flex items-center justify-between">
@@ -360,7 +520,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
             <p className="text-xs text-[#86868B] font-mono font-medium">{users.length} registered user{users.length !== 1 ? 's' : ''}</p>
             <button
               onClick={() => { setShowCreateForm(v => !v); setCreateError(null); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-955 hover:bg-slate-800 text-white rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-white rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
             >
               <UserPlus className="w-3.5 h-3.5" />
               Register User
@@ -401,7 +561,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
                         className="w-full pl-3 pr-8 py-2 bg-[#F5F5F7] border border-[#D2D2D7] rounded-xl text-xs text-[#1D1D1F] placeholder-[#86868B] focus:outline-none focus:border-slate-400 transition-colors font-mono"
                       />
                       <button type="button" onClick={() => setShowNewPassword(v => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#86868B] hover:text-slate-955 transition-colors cursor-pointer">
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#86868B] hover:text-slate-950 transition-colors cursor-pointer">
                         {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
                     </div>
@@ -435,9 +595,10 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
           )}
 
           {/* Users table */}
+          {/* 5-col → 6-col: added Actions column space */}
           <div className="bg-white border border-[#D2D2D7] rounded-2xl overflow-hidden shadow-xs">
-            <div className="grid grid-cols-[1fr_100px_90px_130px_80px] gap-4 px-5 py-3 bg-[#F5F5F7] border-b border-[#D2D2D7]">
-              {['Email Address', 'Clearance Level', 'Account Status', 'Date Created', 'Access Level'].map(h => (
+            <div className="grid grid-cols-[1fr_100px_90px_130px_110px] gap-4 px-5 py-3 bg-[#F5F5F7] border-b border-[#D2D2D7]">
+              {['Email Address', 'Clearance Level', 'Account Status', 'Date Created', 'Actions'].map(h => (
                 <span key={h} className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider">{h}</span>
               ))}
             </div>
@@ -459,8 +620,8 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
             ) : (
               <div className="divide-y divide-[#F0F0F0]">
                 {users.map(user => (
-                  <div key={user.email} className="grid grid-cols-[1fr_100px_90px_130px_80px] gap-4 px-5 py-3.5 hover:bg-[#FAFAFA] transition-colors items-center">
-                    
+                  <div key={user.email} className="grid grid-cols-[1fr_100px_90px_130px_110px] gap-4 px-5 py-3.5 hover:bg-[#FAFAFA] transition-colors items-center">
+
                     {/* Email */}
                     <div className="min-w-0">
                       <p className={`text-xs font-semibold truncate ${user.is_blocked ? 'text-[#86868B] line-through' : 'text-[#1D1D1F]'}`}>
@@ -491,8 +652,18 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
                       </span>
                     </div>
 
-                    {/* Actions */}
+                    {/* Actions: Edit + Block/Unblock + Delete */}
                     <div className="flex items-center gap-1.5">
+                      {/* Edit */}
+                      <button
+                        onClick={() => setEditingUser(user)}
+                        title="Edit user"
+                        className="p-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:bg-slate-100 hover:border-slate-400 hover:text-slate-900 transition-all cursor-pointer"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Block / Unblock */}
                       <button
                         onClick={() => handleToggleBlock(user.email, user.is_blocked)}
                         title={user.is_blocked ? 'Unblock user' : 'Block user'}
@@ -504,6 +675,8 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
                       >
                         {user.is_blocked ? <Unlock className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
                       </button>
+
+                      {/* Delete */}
                       <button
                         onClick={() => handleDeleteUser(user.email)}
                         title="Delete user"
@@ -520,7 +693,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
         </div>
       )}
 
-      {/* ── ════════════════════════════════════════
+      {/* ══════════════════════════════════════════
           AUDIT LOGS SECTION
       ══════════════════════════════════════════ */}
       {activeSection === 'logs' && (
@@ -610,7 +783,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
               <div className="divide-y divide-[#F0F0F0]">
                 {filteredLogs.map(log => (
                   <div key={log.id} className="grid grid-cols-[1fr_130px_125px_90px_160px] gap-4 px-5 py-3.5 hover:bg-[#FAFAFA] transition-colors items-center">
-                    
+
                     {/* Actor Details */}
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-[#1D1D1F] truncate">
