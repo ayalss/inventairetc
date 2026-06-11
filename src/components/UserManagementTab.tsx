@@ -3,29 +3,84 @@ import {
   ShieldAlert, RefreshCw, CheckCircle2, XCircle, Monitor,
   ChevronLeft, ChevronRight, Search, UserPlus, Ban,
   Unlock, Trash2, Users, Eye, EyeOff, Crown, User, UserCheck,
-  Pencil, Save, X
+  Pencil, Save, X, LayoutDashboard, Laptop, Cpu, BarChart2,
+  Building2, QrCode, ShieldCheck, ClipboardList, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────
 
-interface UserRow {
-  email: string;
-  role: string;
-  is_blocked: boolean;
-  created_at: string;
+export interface TabPermissions {
+  dashboard:  boolean;
+  materials:  boolean;
+  puces:      boolean;
+  reports:    boolean;
+  portals:    boolean;
+  qr:         boolean;
+  admin:      boolean;
+  audit:      boolean;
+}
+
+export interface UserRow {
+  email:       string;
+  role:        string;
+  is_blocked:  boolean;
+  created_at:  string;
+  permissions: TabPermissions;
 }
 
 interface AuditLog {
-  id: number;
-  user_email: string | null;
-  action: string;
-  details: string | null;
-  ip_address: string | null;
-  user_agent: string | null;
-  created_at: string;
+  id:          number;
+  user_email:  string | null;
+  action:      string;
+  details:     string | null;
+  ip_address:  string | null;
+  user_agent:  string | null;
+  created_at:  string;
 }
+
+// ─────────────────────────────────────────────
+// PERMISSIONS CONFIG
+// ─────────────────────────────────────────────
+
+interface TabDef {
+  key:   keyof TabPermissions;
+  label: string;
+  Icon:  React.ElementType;
+}
+
+const TABS_DEF: TabDef[] = [
+  { key: 'dashboard', label: 'Dashboard',  Icon: LayoutDashboard },
+  { key: 'materials', label: 'Materials',  Icon: Laptop           },
+  { key: 'puces',     label: 'Puces / SIM',Icon: Cpu              },
+  { key: 'reports',   label: 'Reports',    Icon: BarChart2        },
+  { key: 'portals',   label: 'Portals',    Icon: Building2        },
+  { key: 'qr',        label: 'QR Scanner', Icon: QrCode           },
+  { key: 'admin',     label: 'Admin Panel',Icon: ShieldCheck      },
+  { key: 'audit',     label: 'Audit Logs', Icon: ClipboardList    },
+];
+
+const ROLE_PRESETS: Record<string, TabPermissions> = {
+  user: {
+    dashboard: true,  materials: true,  puces: false, reports: false,
+    portals:   true,  qr:        false, admin: false, audit:   false,
+  },
+  manager: {
+    dashboard: true,  materials: true,  puces: true,  reports: true,
+    portals:   true,  qr:        true,  admin: false, audit:   false,
+  },
+  admin: {
+    dashboard: true,  materials: true,  puces: true,  reports: true,
+    portals:   true,  qr:        true,  admin: true,  audit:   true,
+  },
+};
+
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  user:    'Read-only basics',
+  manager: 'Most features',
+  admin:   'Full access',
+};
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -50,48 +105,197 @@ function parseUA(ua: string | null): string {
   return 'Other';
 }
 
+function defaultPermissions(role: string): TabPermissions {
+  return { ...(ROLE_PRESETS[role] ?? ROLE_PRESETS.user) };
+}
+
+function isCustomized(perms: TabPermissions, role: string): boolean {
+  const preset = ROLE_PRESETS[role] ?? ROLE_PRESETS.user;
+  return TABS_DEF.some(t => perms[t.key] !== preset[t.key]);
+}
+
+// ─────────────────────────────────────────────
+// PERMISSION PANEL (shared by create + edit)
+// ─────────────────────────────────────────────
+
+interface PermissionPanelProps {
+  role:        string;
+  permissions: TabPermissions;
+  onChange:    (p: TabPermissions) => void;
+  onRoleChange:(r: string) => void;
+}
+
+function PermissionPanel({ role, permissions, onChange, onRoleChange }: PermissionPanelProps) {
+  const modified = isCustomized(permissions, role);
+
+  const handleRoleChange = (r: string) => {
+    onRoleChange(r);
+    onChange(defaultPermissions(r));
+  };
+
+  const toggleTab = (key: keyof TabPermissions) => {
+    onChange({ ...permissions, [key]: !permissions[key] });
+  };
+
+  const enabledCount = TABS_DEF.filter(t => permissions[t.key]).length;
+
+  return (
+    <div className="space-y-4">
+
+      {/* Role preset selector */}
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">
+          Security Clearance Role
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {(['user', 'manager', 'admin'] as const).map(r => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => handleRoleChange(r)}
+              className={`px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                role === r
+                  ? 'border-slate-400 bg-slate-950 text-white'
+                  : 'border-[#D2D2D7] bg-[#F5F5F7] text-[#1D1D1F] hover:border-slate-400'
+              }`}
+            >
+              <p className="text-[11px] font-bold uppercase tracking-wider capitalize">{r}</p>
+              <p className={`text-[10px] mt-0.5 ${role === r ? 'text-slate-300' : 'text-[#86868B]'}`}>
+                {ROLE_DESCRIPTIONS[r]}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab permission toggles */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider">
+            Tab Access
+            {modified && (
+              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-600 text-[9px] font-bold uppercase tracking-wider">
+                Custom
+              </span>
+            )}
+          </label>
+          <span className="text-[10px] text-[#86868B] font-mono">{enabledCount} / {TABS_DEF.length} tabs enabled</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-1.5">
+          {TABS_DEF.map(({ key, label, Icon }) => {
+            const enabled = permissions[key];
+            const presetVal = (ROLE_PRESETS[role] ?? ROLE_PRESETS.user)[key];
+            const overridden = enabled !== presetVal;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleTab(key)}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all cursor-pointer ${
+                  enabled
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    : 'bg-[#F5F5F7] border-[#D2D2D7] text-[#86868B]'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[11px] font-semibold truncate">{label}</span>
+                  {overridden && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Manually overridden" />
+                  )}
+                </div>
+                {enabled
+                  ? <ToggleRight className="w-4 h-4 shrink-0 text-emerald-500" />
+                  : <ToggleLeft  className="w-4 h-4 shrink-0 text-[#C7C7CC]"   />
+                }
+              </button>
+            );
+          })}
+        </div>
+
+        {modified && (
+          <p className="text-[10px] text-amber-600 font-medium flex items-center gap-1.5 pt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+            {TABS_DEF.filter(t => permissions[t.key] !== (ROLE_PRESETS[role] ?? ROLE_PRESETS.user)[t.key]).length} manual override(s) applied to preset
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// PERMISSION PILLS (users table)
+// ─────────────────────────────────────────────
+
+function PermissionPills({ permissions, role }: { permissions: TabPermissions; role: string }) {
+  const enabled = TABS_DEF.filter(t => permissions[t.key]);
+  const customized = isCustomized(permissions, role);
+
+  if (enabled.length === 0) {
+    return <span className="text-[10px] text-[#86868B] italic font-mono">No tab access</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1 items-center">
+      {enabled.map(({ key, label }) => (
+        <span
+          key={key}
+          className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-bold uppercase tracking-wider"
+        >
+          {label}
+        </span>
+      ))}
+      {customized && (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-600 text-[9px] font-bold uppercase tracking-wider">
+          Custom
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// BADGE HELPERS
+// ─────────────────────────────────────────────
+
 function ActionBadge({ action }: { action: string }) {
   switch (action) {
     case 'LOGIN_SUCCESS':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-          Success
+          <CheckCircle2 className="w-3 h-3" /> Success
         </span>
       );
     case 'LOGIN_FAILED':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-950/40 border border-red-900/40 text-red-400 text-[10px] font-bold uppercase tracking-wider animate-pulse">
-          <XCircle className="w-3 h-3 text-red-400" />
-          Failed
+          <XCircle className="w-3 h-3" /> Failed
         </span>
       );
     case 'USER_CREATED':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-950/40 border border-blue-900/40 text-blue-400 text-[10px] font-bold uppercase tracking-wider">
-          <UserCheck className="w-3 h-3 text-blue-400" />
-          Created
+          <UserCheck className="w-3 h-3" /> Created
         </span>
       );
     case 'USER_BLOCKED':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-950/40 border border-amber-900/40 text-amber-400 text-[10px] font-bold uppercase tracking-wider">
-          <Ban className="w-3 h-3 text-amber-400" />
-          Blocked
+          <Ban className="w-3 h-3" /> Blocked
         </span>
       );
     case 'USER_UNBLOCKED':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-950/40 border border-teal-900/40 text-teal-400 text-[10px] font-bold uppercase tracking-wider">
-          <Unlock className="w-3 h-3 text-teal-400" />
-          Unblocked
+          <Unlock className="w-3 h-3" /> Unblocked
         </span>
       );
     case 'USER_DELETED':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-950/40 border border-rose-900/40 text-rose-400 text-[10px] font-bold uppercase tracking-wider">
-          <Trash2 className="w-3 h-3 text-rose-400" />
-          Deleted
+          <Trash2 className="w-3 h-3" /> Deleted
         </span>
       );
     case 'USER_CREATE_FAILED':
@@ -100,8 +304,7 @@ function ActionBadge({ action }: { action: string }) {
     case 'USER_DELETE_ERROR':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-950/20 border border-rose-900/30 text-red-400 text-[10px] font-bold uppercase tracking-wider">
-          <ShieldAlert className="w-3 h-3 text-red-400" />
-          Admin Error
+          <ShieldAlert className="w-3 h-3" /> Admin Error
         </span>
       );
     default:
@@ -136,24 +339,30 @@ function RoleBadge({ role }: { role: string }) {
 // ─────────────────────────────────────────────
 
 interface EditUserModalProps {
-  user: UserRow;
+  user:      UserRow;
   adminEmail: string | null;
-  onClose: () => void;
-  onSaved: (updated: UserRow) => void;
+  onClose:   () => void;
+  onSaved:   (updated: UserRow) => void;
 }
 
 function EditUserModal({ user, adminEmail, onClose, onSaved }: EditUserModalProps) {
-  const [role, setRole] = useState(user.role);
+  const [role,        setRole]        = useState(user.role);
+  const [permissions, setPermissions] = useState<TabPermissions>({ ...user.permissions });
   const [newPassword, setNewPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showPassword,setShowPassword]= useState(false);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+
+  const handleRoleChange = (r: string) => {
+    setRole(r);
+    setPermissions(defaultPermissions(r));
+  };
 
   const handleSave = async () => {
     setLoading(true);
     setError(null);
     try {
-      const body: Record<string, string> = { role };
+      const body: Record<string, unknown> = { role, permissions };
       if (newPassword.trim()) body.password = newPassword.trim();
 
       const res = await fetch(`/api/users/${encodeURIComponent(user.email)}`, {
@@ -166,7 +375,7 @@ function EditUserModal({ user, adminEmail, onClose, onSaved }: EditUserModalProp
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update user.');
-      onSaved({ ...user, role });
+      onSaved({ ...user, role, permissions });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -174,7 +383,6 @@ function EditUserModal({ user, adminEmail, onClose, onSaved }: EditUserModalProp
     }
   };
 
-  // Close on backdrop click
   const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -184,7 +392,7 @@ function EditUserModal({ user, adminEmail, onClose, onSaved }: EditUserModalProp
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
       onClick={handleBackdrop}
     >
-      <div className="bg-white border border-[#D2D2D7] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-5">
+      <div className="bg-white border border-[#D2D2D7] rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 space-y-5 max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -194,7 +402,7 @@ function EditUserModal({ user, adminEmail, onClose, onSaved }: EditUserModalProp
             </div>
             <div>
               <h3 className="text-xs font-black text-[#1D1D1F] uppercase tracking-wider">Edit Identity</h3>
-              <p className="text-[10px] text-[#86868B] font-mono mt-0.5 truncate max-w-[220px]">{user.email}</p>
+              <p className="text-[10px] text-[#86868B] font-mono mt-0.5 truncate max-w-[260px]">{user.email}</p>
             </div>
           </div>
           <button
@@ -212,26 +420,10 @@ function EditUserModal({ user, adminEmail, onClose, onSaved }: EditUserModalProp
           </div>
         )}
 
-        {/* Role */}
+        {/* Password */}
         <div className="space-y-1.5">
           <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">
-            Security Clearance Role
-          </label>
-          <select
-            value={role}
-            onChange={e => setRole(e.target.value)}
-            className="w-full px-3 py-2.5 bg-[#F5F5F7] border border-[#D2D2D7] rounded-xl text-xs text-[#1D1D1F] focus:outline-none focus:border-slate-400 transition-colors cursor-pointer font-medium"
-          >
-            <option value="user">User</option>
-            <option value="manager">Manager</option>
-            <option value="admin">Admin</option>
-          </select>
-        </div>
-
-        {/* New password (optional) */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">
-            New Password <span className="normal-case font-medium text-[#86868B]">(leave blank to keep current)</span>
+            New Password <span className="normal-case font-medium">(leave blank to keep current)</span>
           </label>
           <div className="relative">
             <input
@@ -251,6 +443,15 @@ function EditUserModal({ user, adminEmail, onClose, onSaved }: EditUserModalProp
           </div>
         </div>
 
+        <div className="border-t border-[#F0F0F0] pt-4">
+          <PermissionPanel
+            role={role}
+            permissions={permissions}
+            onChange={setPermissions}
+            onRoleChange={handleRoleChange}
+          />
+        </div>
+
         {/* Actions */}
         <div className="flex gap-2 pt-1">
           <button
@@ -258,10 +459,7 @@ function EditUserModal({ user, adminEmail, onClose, onSaved }: EditUserModalProp
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer shadow-xs"
           >
-            {loading
-              ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              : <Save className="w-3.5 h-3.5" />
-            }
+            {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             Save Changes
           </button>
           <button
@@ -288,29 +486,30 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
   const [activeSection, setActiveSection] = useState<'users' | 'logs'>('users');
 
   // ── Users state ──
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [usersError, setUsersError] = useState<string | null>(null);
+  const [users,       setUsers]       = useState<UserRow[]>([]);
+  const [usersLoading,setUsersLoading]= useState(true);
+  const [usersError,  setUsersError]  = useState<string | null>(null);
 
-  // ── Edit modal state ──
+  // ── Edit modal ──
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
 
   // ── Create user form ──
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState('user');
+  const [showCreateForm,  setShowCreateForm]  = useState(false);
+  const [newEmail,        setNewEmail]        = useState('');
+  const [newPassword,     setNewPassword]     = useState('');
+  const [newRole,         setNewRole]         = useState('user');
+  const [newPermissions,  setNewPermissions]  = useState<TabPermissions>(defaultPermissions('user'));
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const [createLoading,   setCreateLoading]   = useState(false);
+  const [createError,     setCreateError]     = useState<string | null>(null);
 
   // ── Audit logs state ──
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
-  const [logsLoading, setLogsLoading] = useState(true);
-  const [logsError, setLogsError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [logs,           setLogs]           = useState<AuditLog[]>([]);
+  const [total,          setTotal]          = useState(0);
+  const [page,           setPage]           = useState(0);
+  const [logsLoading,    setLogsLoading]    = useState(true);
+  const [logsError,      setLogsError]      = useState<string | null>(null);
+  const [search,         setSearch]         = useState('');
   const [filterCategory, setFilterCategory] = useState<'ALL' | 'LOGINS' | 'USER_ACTIONS' | 'ERRORS'>('ALL');
 
   // ─────────────────────────────────────────────
@@ -323,8 +522,13 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
     try {
       const res = await fetch('/api/users');
       if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const data = await res.json();
-      setUsers(data);
+      const data: UserRow[] = await res.json();
+      // Ensure permissions field always exists (backwards compat)
+      const hydrated = data.map(u => ({
+        ...u,
+        permissions: u.permissions ?? defaultPermissions(u.role),
+      }));
+      setUsers(hydrated);
     } catch (err: any) {
       setUsersError(err.message || 'Failed to load users.');
     } finally {
@@ -369,13 +573,21 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(adminEmail ? { 'x-admin-email': adminEmail } : {})
+          ...(adminEmail ? { 'x-admin-email': adminEmail } : {}),
         },
-        body: JSON.stringify({ email: newEmail.trim(), password: newPassword.trim(), role: newRole }),
+        body: JSON.stringify({
+          email:       newEmail.trim(),
+          password:    newPassword.trim(),
+          role:        newRole,
+          permissions: newPermissions,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create user.');
-      setNewEmail(''); setNewPassword(''); setNewRole('user');
+      setNewEmail('');
+      setNewPassword('');
+      setNewRole('user');
+      setNewPermissions(defaultPermissions('user'));
       setShowCreateForm(false);
       await fetchUsers();
     } catch (err: any) {
@@ -383,6 +595,11 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
     } finally {
       setCreateLoading(false);
     }
+  };
+
+  const handleNewRoleChange = (r: string) => {
+    setNewRole(r);
+    setNewPermissions(defaultPermissions(r));
   };
 
   // ─────────────────────────────────────────────
@@ -395,7 +612,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(adminEmail ? { 'x-admin-email': adminEmail } : {})
+          ...(adminEmail ? { 'x-admin-email': adminEmail } : {}),
         },
         body: JSON.stringify({ is_blocked: !currentlyBlocked }),
       });
@@ -415,9 +632,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
     try {
       const res = await fetch(`/api/users/${encodeURIComponent(email)}`, {
         method: 'DELETE',
-        headers: {
-          ...(adminEmail ? { 'x-admin-email': adminEmail } : {})
-        }
+        headers: { ...(adminEmail ? { 'x-admin-email': adminEmail } : {}) },
       });
       if (!res.ok) throw new Error('Failed to delete user.');
       setUsers(prev => prev.filter(u => u.email !== email));
@@ -431,6 +646,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
   // ─────────────────────────────────────────────
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   const filteredLogs = logs.filter(log => {
     let matchCategory = true;
     if (filterCategory === 'LOGINS') {
@@ -440,19 +656,21 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
     } else if (filterCategory === 'ERRORS') {
       matchCategory = log.action.endsWith('_FAILED') || log.action.endsWith('_ERROR') || log.action === 'LOGIN_FAILED';
     }
-
     const q = search.toLowerCase();
     const matchSearch = !q ||
       (log.user_email || '').toLowerCase().includes(q) ||
       (log.details    || '').toLowerCase().includes(q) ||
       (log.ip_address || '').toLowerCase().includes(q) ||
       log.action.toLowerCase().includes(q);
-
     return matchCategory && matchSearch;
   });
 
   const successCount = logs.filter(l => l.action === 'LOGIN_SUCCESS').length;
   const failedCount  = logs.filter(l => l.action === 'LOGIN_FAILED').length;
+
+  // ─────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
@@ -463,7 +681,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
           user={editingUser}
           adminEmail={adminEmail}
           onClose={() => setEditingUser(null)}
-          onSaved={(updated) => {
+          onSaved={updated => {
             setUsers(prev => prev.map(u => u.email === updated.email ? updated : u));
             setEditingUser(null);
           }}
@@ -471,32 +689,27 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
       )}
 
       {/* ── Page Header ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-            <ShieldAlert className="w-5 h-5 text-red-500" />
-          </div>
-          <div>
-            <h2 className="text-sm font-black text-[#1D1D1F] uppercase tracking-[0.12em]">Security & User Management</h2>
-            <p className="text-[10px] text-[#86868B] font-mono tracking-wider uppercase mt-0.5">
-              Secure identity registry · System audits · Access logging
-            </p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+          <ShieldAlert className="w-5 h-5 text-red-500" />
+        </div>
+        <div>
+          <h2 className="text-sm font-black text-[#1D1D1F] uppercase tracking-[0.12em]">Security & User Management</h2>
+          <p className="text-[10px] text-[#86868B] font-mono tracking-wider uppercase mt-0.5">
+            Secure identity registry · System audits · Access logging
+          </p>
         </div>
       </div>
 
       {/* ── Section Tabs ── */}
       <div className="flex items-center gap-1 bg-white border border-[#D2D2D7] rounded-xl p-1 w-fit shadow-xs">
         {([
-          { key: 'users', label: 'Users & Roles', Icon: Users },
+          { key: 'users', label: 'Users & Roles', Icon: Users      },
           { key: 'logs',  label: 'Audits & Logs', Icon: ShieldAlert },
         ] as const).map(({ key, label, Icon }) => (
           <button
             key={key}
-            onClick={() => {
-              setActiveSection(key);
-              setPage(0);
-            }}
+            onClick={() => { setActiveSection(key); setPage(0); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
               activeSection === key
                 ? 'bg-slate-950 text-white shadow-sm'
@@ -517,7 +730,9 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
 
           {/* Header row */}
           <div className="flex items-center justify-between">
-            <p className="text-xs text-[#86868B] font-mono font-medium">{users.length} registered user{users.length !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-[#86868B] font-mono font-medium">
+              {users.length} registered user{users.length !== 1 ? 's' : ''}
+            </p>
             <button
               onClick={() => { setShowCreateForm(v => !v); setCreateError(null); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-white rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
@@ -527,17 +742,20 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
             </button>
           </div>
 
-          {/* Create user form */}
+          {/* ── Create user form ── */}
           {showCreateForm && (
-            <div className="bg-white border border-[#D2D2D7] rounded-2xl p-5 space-y-4 shadow-sm">
+            <div className="bg-white border border-[#D2D2D7] rounded-2xl p-5 space-y-5 shadow-sm">
               <h3 className="text-xs font-black text-[#1D1D1F] uppercase tracking-wider">Register New Identity</h3>
-              <form onSubmit={handleCreateUser} className="space-y-3">
+
+              <form onSubmit={handleCreateUser} className="space-y-5">
                 {createError && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-500 flex items-center gap-2">
                     <XCircle className="w-4 h-4 shrink-0" /> {createError}
                   </div>
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+                {/* Email + Password */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">Email Address</label>
                     <input
@@ -550,7 +768,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">Credentials Password</label>
+                    <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">Password</label>
                     <div className="relative">
                       <input
                         type={showNewPassword ? 'text' : 'password'}
@@ -566,27 +784,33 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">Security Clearance Role</label>
-                    <select
-                      value={newRole}
-                      onChange={e => setNewRole(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#F5F5F7] border border-[#D2D2D7] rounded-xl text-xs text-[#1D1D1F] focus:outline-none focus:border-slate-400 transition-colors cursor-pointer font-medium"
-                    >
-                      <option value="user">User</option>
-                      <option value="manager">Manager</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
                 </div>
-                <div className="flex gap-2 pt-1">
-                  <button type="submit" disabled={createLoading}
-                    className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-xs">
+
+                {/* Permission panel */}
+                <div className="border-t border-[#F0F0F0] pt-4">
+                  <PermissionPanel
+                    role={newRole}
+                    permissions={newPermissions}
+                    onChange={setNewPermissions}
+                    onRoleChange={handleNewRoleChange}
+                  />
+                </div>
+
+                {/* Submit */}
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={createLoading}
+                    className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-xs"
+                  >
                     {createLoading && <RefreshCw className="w-3 h-3 animate-spin" />}
                     Create Identity
                   </button>
-                  <button type="button" onClick={() => setShowCreateForm(false)}
-                    className="px-4 py-2 bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#424245] rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateForm(false)}
+                    className="px-4 py-2 bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#424245] rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                  >
                     Cancel
                   </button>
                 </div>
@@ -594,11 +818,10 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
             </div>
           )}
 
-          {/* Users table */}
-          {/* 5-col → 6-col: added Actions column space */}
+          {/* ── Users table ── */}
           <div className="bg-white border border-[#D2D2D7] rounded-2xl overflow-hidden shadow-xs">
-            <div className="grid grid-cols-[1fr_100px_90px_130px_110px] gap-4 px-5 py-3 bg-[#F5F5F7] border-b border-[#D2D2D7]">
-              {['Email Address', 'Clearance Level', 'Account Status', 'Date Created', 'Actions'].map(h => (
+            <div className="grid grid-cols-[1fr_100px_90px_1fr_110px] gap-4 px-5 py-3 bg-[#F5F5F7] border-b border-[#D2D2D7]">
+              {['Email Address', 'Clearance Level', 'Account Status', 'Tab Access', 'Actions'].map(h => (
                 <span key={h} className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider">{h}</span>
               ))}
             </div>
@@ -620,12 +843,17 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
             ) : (
               <div className="divide-y divide-[#F0F0F0]">
                 {users.map(user => (
-                  <div key={user.email} className="grid grid-cols-[1fr_100px_90px_130px_110px] gap-4 px-5 py-3.5 hover:bg-[#FAFAFA] transition-colors items-center">
-
+                  <div
+                    key={user.email}
+                    className="grid grid-cols-[1fr_100px_90px_1fr_110px] gap-4 px-5 py-3.5 hover:bg-[#FAFAFA] transition-colors items-center"
+                  >
                     {/* Email */}
                     <div className="min-w-0">
                       <p className={`text-xs font-semibold truncate ${user.is_blocked ? 'text-[#86868B] line-through' : 'text-[#1D1D1F]'}`}>
                         {user.email}
+                      </p>
+                      <p className="text-[10px] text-[#86868B] font-mono mt-0.5">
+                        {new Date(user.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </p>
                     </div>
 
@@ -645,16 +873,13 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
                       )}
                     </div>
 
-                    {/* Created */}
-                    <div>
-                      <span className="text-[11px] font-mono text-[#86868B]">
-                        {new Date(user.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </span>
+                    {/* Tab access pills */}
+                    <div className="min-w-0">
+                      <PermissionPills permissions={user.permissions} role={user.role} />
                     </div>
 
-                    {/* Actions: Edit + Block/Unblock + Delete */}
+                    {/* Actions */}
                     <div className="flex items-center gap-1.5">
-                      {/* Edit */}
                       <button
                         onClick={() => setEditingUser(user)}
                         title="Edit user"
@@ -662,8 +887,6 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-
-                      {/* Block / Unblock */}
                       <button
                         onClick={() => handleToggleBlock(user.email, user.is_blocked)}
                         title={user.is_blocked ? 'Unblock user' : 'Block user'}
@@ -675,8 +898,6 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
                       >
                         {user.is_blocked ? <Unlock className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
                       </button>
-
-                      {/* Delete */}
                       <button
                         onClick={() => handleDeleteUser(user.email)}
                         title="Delete user"
@@ -699,7 +920,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
       {activeSection === 'logs' && (
         <div className="space-y-4">
 
-          {/* Stats overview */}
+          {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white border border-[#D2D2D7] rounded-2xl p-4 space-y-1 shadow-xs">
               <p className="text-[10px] text-[#86868B] font-mono uppercase tracking-wider font-semibold">Total Indexed Events</p>
@@ -715,7 +936,7 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
             </div>
           </div>
 
-          {/* Filters controls */}
+          {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#86868B]" />
@@ -729,17 +950,14 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
             </div>
             <div className="flex items-center gap-1 bg-white border border-[#D2D2D7] rounded-xl p-1 shadow-xs shrink-0">
               {([
-                { key: 'ALL', label: 'All Events' },
-                { key: 'LOGINS', label: 'Logins' },
-                { key: 'USER_ACTIONS', label: 'User Admin' },
-                { key: 'ERRORS', label: 'Errors' },
+                { key: 'ALL',          label: 'All Events'  },
+                { key: 'LOGINS',       label: 'Logins'      },
+                { key: 'USER_ACTIONS', label: 'User Admin'  },
+                { key: 'ERRORS',       label: 'Errors'      },
               ] as const).map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => {
-                    setFilterCategory(key);
-                    setPage(0);
-                  }}
+                  onClick={() => { setFilterCategory(key); setPage(0); }}
                   className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
                     filterCategory === key
                       ? 'bg-slate-950 text-white'
@@ -750,8 +968,11 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
                 </button>
               ))}
             </div>
-            <button onClick={() => fetchLogs(page)} disabled={logsLoading}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer shadow-xs justify-center">
+            <button
+              onClick={() => fetchLogs(page)}
+              disabled={logsLoading}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer shadow-xs justify-center"
+            >
               <RefreshCw className={`w-3.5 h-3.5 ${logsLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
@@ -783,32 +1004,22 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
               <div className="divide-y divide-[#F0F0F0]">
                 {filteredLogs.map(log => (
                   <div key={log.id} className="grid grid-cols-[1fr_130px_125px_90px_160px] gap-4 px-5 py-3.5 hover:bg-[#FAFAFA] transition-colors items-center">
-
-                    {/* Actor Details */}
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-[#1D1D1F] truncate">
                         {log.user_email || <span className="text-[#86868B] italic">anonymous</span>}
                       </p>
                       {log.details && <p className="text-[10px] text-[#86868B] truncate mt-0.5 font-medium">{log.details}</p>}
                     </div>
-
-                    {/* Action Badge */}
                     <div><ActionBadge action={log.action} /></div>
-
-                    {/* IP Address */}
                     <div>
                       <span className="text-[11px] font-mono text-[#1D1D1F] bg-[#F5F5F7] px-2 py-0.5 rounded-md border border-[#D2D2D7]">
                         {log.ip_address || '—'}
                       </span>
                     </div>
-
-                    {/* Browser Info */}
                     <div className="flex items-center gap-1">
                       <Monitor className="w-3 h-3 text-[#86868B] shrink-0" />
                       <span className="text-[11px] text-[#86868B] font-medium">{parseUA(log.user_agent)}</span>
                     </div>
-
-                    {/* Timestamp */}
                     <div>
                       <span className="text-[11px] font-mono text-[#86868B]">{formatDate(log.created_at)}</span>
                     </div>
@@ -818,20 +1029,26 @@ export default function UserManagementTab({ adminEmail }: UserManagementTabProps
             )}
           </div>
 
-          {/* Pagination controls */}
+          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-[11px] text-[#86868B] font-mono">
                 Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
               </p>
               <div className="flex items-center gap-2">
-                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                  className="p-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-slate-900 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer">
+                <button
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="p-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-slate-900 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <span className="text-xs font-mono text-[#1D1D1F] font-semibold px-2">{page + 1} / {totalPages}</span>
-                <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
-                  className="p-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-slate-900 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer">
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="p-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-slate-900 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
