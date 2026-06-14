@@ -48,9 +48,7 @@ const memoryStore = {
   materials:   [...INITIAL_MATERIALS]   as any[],
   puces:        [] as any[],
   auditLogs:    [] as any[],
-  users: [
-    { email: 'ayalss@gmail.com', password: 'aya', role: 'admin', is_blocked: false, created_at: new Date().toISOString() }
-  ] as any[]
+  users: [] as any[]
 };
 
 // ==========================================

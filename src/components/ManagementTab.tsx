@@ -76,8 +76,18 @@ export default function ManagementTab({
 
   // ─── Auto-number helpers ───────────────────────────────────────────────────
   const getNextDeptNum          = () => String(departments.length + 1);
-  const getNextManagerOfficeNum = () => String(managers.length + 1);
-  const getNextNodeOfficeNum    = () => String(subNodes.length + 1);
+  // ✅ FIX
+const getNextManagerOfficeNum = () =>
+  String(managers.filter(m => m.company === mngCompany).length + 1);
+
+const getNextNodeOfficeNum = () => {
+  const selectedMng = managers.find(m => m.id === nodeManagerId);
+  const company = selectedMng?.company || 'TC';
+  return String(subNodes.filter(s => {
+    const mng = managers.find(m => m.id === s.managerId);
+    return mng?.company === company;
+  }).length + 1);
+};
 
   // ─── Form states ───────────────────────────────────────────────────────────
   const [deptName, setDeptName] = useState('');

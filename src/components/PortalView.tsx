@@ -192,7 +192,7 @@ export default function PortalView({
       email: mngEmail,
       role: mngRole,
       avatarColor: randomColor,
-      officeNum: String(managers.length + 1),
+      officeNum: String(managers.filter(m => m.company === mngCompany).length + 1),
       company: mngCompany,
       departmentId: selectedDept.id
     };
@@ -216,7 +216,10 @@ export default function PortalView({
       name: nodeName,
       role: nodeRole.trim() || undefined,
       type: nodeType,
-      officeNum: String(subNodes.length + 1),
+      officeNum: String(subNodes.filter(s => {
+  const mng = managers.find(m => m.id === s.managerId);
+  return mng?.company === activeManager.company;
+}).length + 1),
       managerId: activeManager.id
     };
 
