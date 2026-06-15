@@ -52,6 +52,29 @@ const memoryStore = {
 };
 
 // ==========================================
+// ROLE PERMISSIONS HELPER (mirrors frontend)
+// ==========================================
+
+const ROLE_PRESETS: Record<string, Record<string, boolean>> = {
+  user: {
+    dashboard: true,  materials: true,  puces: false, reports: false,
+    portals:   true,  qr:        false, admin: false, audit:   false,
+  },
+  manager: {
+    dashboard: true,  materials: true,  puces: true,  reports: true,
+    portals:   true,  qr:        true,  admin: false, audit:   false,
+  },
+  admin: {
+    dashboard: true,  materials: true,  puces: true,  reports: true,
+    portals:   true,  qr:        true,  admin: true,  audit:   true,
+  },
+};
+
+function defaultPermsForRole(role: string) {
+  return { ...(ROLE_PRESETS[role] ?? ROLE_PRESETS.user) };
+}
+
+// ==========================================
 // AUDIT LOGGER HELPER
 // ==========================================
 
@@ -182,11 +205,22 @@ async function checkAndInitializeDatabase() {
     await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS condition VARCHAR(20) NOT NULL DEFAULT 'Bon';`);
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE;`);
 
+    // ── NEW: permissions column migration ──
+    await client.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{
+        "dashboard":true,"materials":true,"puces":false,"reports":false,
+        "portals":true,"qr":false,"admin":false,"audit":false
+      }'::jsonb;
+    `);
+
     // Seed admin user if missing
     const userCount = await client.query('SELECT COUNT(*) FROM users');
     if (parseInt(userCount.rows[0].count) === 0) {
       await client.query(
-        "INSERT INTO users (email, password, role) VALUES ('ayalss@gmail.com', 'luxury', 'admin')"
+        `INSERT INTO users (email, password, role, permissions)
+         VALUES ('ayalss@gmail.com', 'luxury', 'admin', $1)`,
+        [JSON.stringify(defaultPermsForRole('admin'))]
       );
       console.log('[POSTGRES] Admin user seeded.');
     }
@@ -302,7 +336,12 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(401).json({ error: 'Access Denied: Invalid password.' });
       }
       await logAudit('LOGIN_SUCCESS', rows[0].email, 'Authenticated successfully', ip, ua);
-      return res.json({ success: true, email: rows[0].email, role: rows[0].role });
+      return res.json({
+        success: true,
+        email: rows[0].email,
+        role: rows[0].role,
+        permissions: rows[0].permissions ?? defaultPermsForRole(rows[0].role),
+      });
     } else {
       const user = memoryStore.users.find(u => String(u.email).toLowerCase() === cleanEmail);
       if (!user) {
@@ -318,7 +357,12 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(401).json({ error: 'Access Denied: Invalid password.' });
       }
       await logAudit('LOGIN_SUCCESS', user.email, 'Authenticated successfully (memory)', ip, ua);
-      return res.json({ success: true, email: user.email, role: user.role });
+      return res.json({
+        success: true,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions ?? defaultPermsForRole(user.role),
+      });
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -335,11 +379,14 @@ app.post('/api/auth/session-restored', async (req, res) => {
 });
 
 // --- USERS ---
+
+// GET all users — includes permissions
 app.get('/api/users', async (req, res) => {
   try {
     if (isDbConnected) {
       const { rows } = await pool.query(
-        `SELECT email, role, is_blocked, created_at FROM users ORDER BY created_at ASC`
+        `SELECT email, role, is_blocked, created_at, permissions
+         FROM users ORDER BY created_at ASC`
       );
       res.json(rows);
     } else {
@@ -350,15 +397,17 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+// POST create user — saves permissions
 app.post('/api/users', async (req, res) => {
-  const { email, password, role } = req.body;
+  const { email, password, role, permissions } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
   const cleanEmail = String(email).trim().toLowerCase();
   const cleanRole  = role || 'user';
+  const cleanPerms = permissions ?? defaultPermsForRole(cleanRole);
   const ip         = getClientIp(req);
   const ua         = req.headers['user-agent'] || 'unknown';
   const adminEmail = req.headers['x-admin-email'] as string || null;
-  
+
   try {
     if (isDbConnected) {
       const existing = await pool.query('SELECT email FROM users WHERE LOWER(email) = $1', [cleanEmail]);
@@ -367,8 +416,10 @@ app.post('/api/users', async (req, res) => {
         return res.status(409).json({ error: 'A user with this email already exists.' });
       }
       const { rows } = await pool.query(
-        `INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING email, role, is_blocked, created_at`,
-        [cleanEmail, String(password).trim(), cleanRole]
+        `INSERT INTO users (email, password, role, permissions)
+         VALUES ($1, $2, $3, $4)
+         RETURNING email, role, is_blocked, created_at, permissions`,
+        [cleanEmail, String(password).trim(), cleanRole, JSON.stringify(cleanPerms)]
       );
       await logAudit('USER_CREATED', adminEmail, `New user created: ${cleanEmail} with role: ${cleanRole}`, ip, ua);
       res.json(rows[0]);
@@ -377,7 +428,14 @@ app.post('/api/users', async (req, res) => {
         await logAudit('USER_CREATE_FAILED', adminEmail, `Attempted to create duplicate user: ${cleanEmail}`, ip, ua);
         return res.status(409).json({ error: 'A user with this email already exists.' });
       }
-      const newUser = { email: cleanEmail, password: String(password).trim(), role: cleanRole, is_blocked: false, created_at: new Date().toISOString() };
+      const newUser = {
+        email: cleanEmail,
+        password: String(password).trim(),
+        role: cleanRole,
+        permissions: cleanPerms,
+        is_blocked: false,
+        created_at: new Date().toISOString(),
+      };
       memoryStore.users.push(newUser);
       await logAudit('USER_CREATED', adminEmail, `New user created: ${cleanEmail} with role: ${cleanRole}`, ip, ua);
       const { password: _, ...safe } = newUser;
@@ -389,13 +447,81 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
+// ── NEW: PATCH /api/users/:email — update role, permissions, password ──
+// IMPORTANT: this must be defined BEFORE /api/users/:email/block
+app.patch('/api/users/:email', async (req, res) => {
+  const email      = decodeURIComponent(req.params.email).toLowerCase();
+  const { role, permissions, password } = req.body;
+  const ip         = getClientIp(req);
+  const ua         = req.headers['user-agent'] || 'unknown';
+  const adminEmail = req.headers['x-admin-email'] as string || null;
+
+  try {
+    if (isDbConnected) {
+      const updates: string[] = [];
+      const values:  any[]    = [];
+      let   idx = 1;
+
+      if (role !== undefined) {
+        updates.push(`role = $${idx++}`);
+        values.push(role);
+      }
+      if (permissions !== undefined) {
+        updates.push(`permissions = $${idx++}`);
+        values.push(JSON.stringify(permissions));
+      }
+      if (password && String(password).trim()) {
+        updates.push(`password = $${idx++}`);
+        values.push(String(password).trim());
+      }
+
+      if (updates.length === 0)
+        return res.status(400).json({ error: 'Nothing to update.' });
+
+      values.push(email);
+      const { rows } = await pool.query(
+        `UPDATE users
+         SET ${updates.join(', ')}
+         WHERE LOWER(email) = $${idx}
+         RETURNING email, role, is_blocked, created_at, permissions`,
+        values
+      );
+
+      if (rows.length === 0)
+        return res.status(404).json({ error: 'User not found.' });
+
+      await logAudit(
+        'USER_UPDATED', adminEmail,
+        `Updated user: ${email}${role ? ` | role → ${role}` : ''}${password ? ' | password changed' : ''}`,
+        ip, ua
+      );
+      res.json(rows[0]);
+
+    } else {
+      const u = memoryStore.users.find(u => u.email === email);
+      if (!u) return res.status(404).json({ error: 'User not found.' });
+
+      if (role !== undefined)        u.role        = role;
+      if (permissions !== undefined) u.permissions = permissions;
+      if (password && String(password).trim()) u.password = String(password).trim();
+
+      await logAudit('USER_UPDATED', adminEmail, `Updated user (memory): ${email}`, ip, ua);
+      const { password: _, ...safe } = u;
+      res.json(safe);
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH block/unblock — unchanged
 app.patch('/api/users/:email/block', async (req, res) => {
   const email      = decodeURIComponent(req.params.email).toLowerCase();
   const is_blocked = Boolean(req.body.is_blocked);
   const ip         = getClientIp(req);
   const ua         = req.headers['user-agent'] || 'unknown';
   const adminEmail = req.headers['x-admin-email'] as string || null;
-  
+
   try {
     if (isDbConnected) {
       await pool.query('UPDATE users SET is_blocked = $1 WHERE LOWER(email) = $2', [is_blocked, email]);
@@ -403,7 +529,7 @@ app.patch('/api/users/:email/block', async (req, res) => {
       const u = memoryStore.users.find(u => u.email === email);
       if (u) u.is_blocked = is_blocked;
     }
-    const action = is_blocked ? 'USER_BLOCKED' : 'USER_UNBLOCKED';
+    const action  = is_blocked ? 'USER_BLOCKED'   : 'USER_UNBLOCKED';
     const details = is_blocked ? `User blocked: ${email}` : `User unblocked: ${email}`;
     await logAudit(action, adminEmail, details, ip, ua);
     res.json({ success: true, email, is_blocked });
@@ -413,12 +539,13 @@ app.patch('/api/users/:email/block', async (req, res) => {
   }
 });
 
+// DELETE user — unchanged
 app.delete('/api/users/:email', async (req, res) => {
   const email = decodeURIComponent(req.params.email).toLowerCase();
   const ip    = getClientIp(req);
   const ua    = req.headers['user-agent'] || 'unknown';
   const adminEmail = req.headers['x-admin-email'] as string || null;
-  
+
   try {
     if (isDbConnected) {
       await pool.query('DELETE FROM users WHERE LOWER(email) = $1', [email]);

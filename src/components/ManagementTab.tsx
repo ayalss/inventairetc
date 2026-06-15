@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Department, Manager, SubNode, Material, Puce } from '../types';
 import { generateMaterialCodification } from '../data';
@@ -8,6 +8,148 @@ import {
   Users, Cpu, Truck, LayoutList, ClipboardCheck, CreditCard, ChevronDown,
   Square, CheckSquare, AlertTriangle, Paperclip, FileUp, Eye, Download, Smartphone
 } from 'lucide-react';
+
+// ─── Catalog Selector types ──────────────────────────────────────────────────
+interface CatalogBrand {
+  name: string;
+  models: string[];
+}
+
+interface CatalogItem {
+  label: string;
+  deviceCategory: 'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Other';
+  brands: CatalogBrand[];
+}
+
+const DEFAULT_CATALOG: Record<string, CatalogItem> = {
+  ecran: {
+    label: 'Écran / Screen',
+    deviceCategory: 'Screen',
+    brands: [
+      { name: 'LG', models: ['24MK600', 'Flatron IPS', 'UltraGear 27"'] },
+      { name: 'Samsung', models: ['SyncMaster', 'T35F', 'Odyssey G3'] },
+      { name: 'Dell', models: ['P2419H', 'E2216H'] },
+      { name: 'HP', models: ['EliteDisplay', 'ProDisplay'] }
+    ]
+  },
+  clavier: {
+    label: 'Clavier / Keyboard',
+    deviceCategory: 'Keyboard',
+    brands: [
+      { name: 'Dell', models: ['KB216', 'KB522'] },
+      { name: 'HP', models: ['K1500', 'Slim Keyboard'] },
+      { name: 'Logitech', models: ['K120', 'K270 Wireless', 'MX Keys'] },
+      { name: 'Lenovo', models: ['Essential Wired'] }
+    ]
+  },
+  souris: {
+    label: 'Souris / Mouse',
+    deviceCategory: 'Mouse',
+    brands: [
+      { name: 'Dell', models: ['MS116', 'MS3320W'] },
+      { name: 'HP', models: ['X1000', 'USB Mouse'] },
+      { name: 'Logitech', models: ['M90', 'M185 Wireless', 'MX Master 3'] },
+      { name: 'Lenovo', models: ['Essential USB'] }
+    ]
+  },
+  printer: {
+    label: 'Imprimante / Printer',
+    deviceCategory: 'Printer',
+    brands: [
+      { name: 'Canon', models: ['Pixma G3010', 'LBP6030', 'i-SENSYS LBP223dw'] },
+      { name: 'HP', models: ['LaserJet Pro M404dn', 'Smart Tank 515', 'Neverstop Laser'] },
+      { name: 'Epson', models: ['L3150 Wi-Fi', 'L805 Photo'] },
+      { name: 'Brother', models: ['HL-L2320D', 'DCP-T420W'] }
+    ]
+  },
+  laptop: {
+    label: 'Laptop / Notebook',
+    deviceCategory: 'Laptop',
+    brands: [
+      { name: 'Dell', models: ['Latitude 5420', 'Inspiron 15', 'XPS 13'] },
+      { name: 'HP', models: ['ProBook 450 G8', 'EliteBook 840', 'Pavilion 15'] },
+      { name: 'Lenovo', models: ['ThinkPad L14', 'IdeaPad 3', 'ThinkPad E15'] },
+      { name: 'ASUS', models: ['ZenBook', 'VivoBook'] },
+      { name: 'Apple', models: ['MacBook Air M1', 'MacBook Pro 14"'] }
+    ]
+  },
+  desktop: {
+    label: 'Desktop PC',
+    deviceCategory: 'Desktop',
+    brands: [
+      { name: 'Dell', models: ['OptiPlex 3080', 'OptiPlex 7090'] },
+      { name: 'HP', models: ['ProDesk 400', 'EliteDesk 800'] },
+      { name: 'Lenovo', models: ['ThinkCentre M70q', 'ThinkCentre Neo 50t'] }
+    ]
+  },
+  server: {
+    label: 'Server Room Host',
+    deviceCategory: 'Server',
+    brands: [
+      { name: 'Dell', models: ['PowerEdge R650', 'PowerEdge R750', 'PowerEdge T150'] },
+      { name: 'HP', models: ['ProLiant DL360 Gen10', 'ProLiant ML30 Gen10'] }
+    ]
+  },
+  switch: {
+    label: 'Switch / Gateway',
+    deviceCategory: 'Switch',
+    brands: [
+      { name: 'Cisco', models: ['Catalyst 2960', 'Catalyst 9200'] },
+      { name: 'TP-Link', models: ['TL-SG1024D', 'TL-SF1008D'] },
+      { name: 'D-Link', models: ['DES-1008A', 'DGS-1024D'] }
+    ]
+  },
+  ups: {
+    label: 'UPS (Onduleur)',
+    deviceCategory: 'UPS',
+    brands: [
+      { name: 'APC', models: ['Back-UPS 700VA', 'Easy UPS 1000VA', 'Smart-UPS 1500VA'] },
+      { name: 'Legrand', models: ['Keor SP 800VA', 'Niky S 1000VA'] },
+      { name: 'Eaton', models: ['5E 650i USB', 'Ellipse PRO 850'] }
+    ]
+  },
+  phone: {
+    label: 'Phone',
+    deviceCategory: 'Phone',
+    brands: [
+      { name: 'Samsung', models: ['Galaxy A12', 'Galaxy S21'] },
+      { name: 'Apple', models: ['iPhone 11', 'iPhone 13', 'iPhone SE'] },
+      { name: 'Xiaomi', models: ['Redmi Note 10', 'Poco X3'] }
+    ]
+  },
+  'desk phone': {
+    label: 'Desk Phone',
+    deviceCategory: 'Desk Phone',
+    brands: [
+      { name: 'Yealink', models: ['SIP-T31P', 'SIP-T46U'] },
+      { name: 'Cisco', models: ['IP Phone 7821', 'IP Phone 8845'] },
+      { name: 'Grandstream', models: ['GRP2601', 'GXP1625'] }
+    ]
+  },
+  cable: {
+    label: 'Cable',
+    deviceCategory: 'Cable',
+    brands: [
+      { name: 'Generic', models: ['Power Cable', 'HDMI Cable 1.5m', 'HDMI Cable 3m', 'Ethernet RJ45 2m', 'Ethernet RJ45 5m', 'VGA Cable'] }
+    ]
+  },
+  'flash disque': {
+    label: 'Flash Disque',
+    deviceCategory: 'Flash Disque',
+    brands: [
+      { name: 'Kingston', models: ['DataTraveler 32GB', 'DataTraveler 64GB'] },
+      { name: 'SanDisk', models: ['Cruzer Blade 16GB', 'Cruzer Glide 64GB', 'Ultra Dual Drive 128GB'] },
+      { name: 'Adata', models: ['UV128 32GB'] }
+    ]
+  },
+  other: {
+    label: 'Autre / Other',
+    deviceCategory: 'Other',
+    brands: [
+      { name: 'Generic', models: ['Standard Unit'] }
+    ]
+  }
+};
 
 // ─── Document type for SubNode attachments ────────────────────────────────────
 export interface SubNodeDocument {
@@ -116,6 +258,72 @@ const getNextNodeOfficeNum = () => {
   const [matNodeId,    setMatNodeId]    = useState(subNodes[0]?.id || '');
   const [matNotes,     setMatNotes]     = useState('');
 
+  // ─── Dynamic Catalog Picker states ─────────────────────────────────────────
+  const [catalog, setCatalog] = useState<Record<string, CatalogItem>>(() => {
+    const saved = localStorage.getItem('tc_article_catalog');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse catalog from localStorage', e);
+      }
+    }
+    return DEFAULT_CATALOG;
+  });
+
+  const [selectedCatalogType, setSelectedCatalogType] = useState<string>('');
+  const [selectedCatalogBrand, setSelectedCatalogBrand] = useState<string>('');
+  const [newBrandName, setNewBrandName] = useState<string>('');
+  const [selectedCatalogModel, setSelectedCatalogModel] = useState<string>('');
+  const [newModelName, setNewModelName] = useState<string>('');
+
+  const handleCatalogTypeChange = (type: string) => {
+    setSelectedCatalogType(type);
+    setSelectedCatalogBrand('');
+    setSelectedCatalogModel('');
+    setNewBrandName('');
+    setNewModelName('');
+
+    if (type && catalog[type]) {
+      setMatType(catalog[type].deviceCategory);
+    }
+  };
+
+  const availableBrands = useMemo(() => {
+    if (!selectedCatalogType || !catalog[selectedCatalogType]) return [];
+    return catalog[selectedCatalogType].brands;
+  }, [selectedCatalogType, catalog]);
+
+  const availableModels = useMemo(() => {
+    if (!selectedCatalogType || !selectedCatalogBrand || !catalog[selectedCatalogType]) return [];
+    const brandObj = catalog[selectedCatalogType].brands.find(b => b.name === selectedCatalogBrand);
+    return brandObj ? brandObj.models : [];
+  }, [selectedCatalogType, selectedCatalogBrand, catalog]);
+
+  useEffect(() => {
+    if (!selectedCatalogType) return;
+    
+    const nameParts = [selectedCatalogType];
+
+    let brand = '';
+    if (selectedCatalogBrand === '__NEW__') {
+      brand = newBrandName.trim();
+    } else if (selectedCatalogBrand) {
+      brand = selectedCatalogBrand;
+    }
+    if (brand) nameParts.push(brand);
+
+    let model = '';
+    if (selectedCatalogModel === '__NEW__') {
+      model = newModelName.trim();
+    } else if (selectedCatalogModel) {
+      model = selectedCatalogModel;
+    }
+    if (model) nameParts.push(model);
+
+    setMatName(nameParts.join(' '));
+  }, [selectedCatalogType, selectedCatalogBrand, newBrandName, selectedCatalogModel, newModelName]);
+
   // ─── Puce form state ───────────────────────────────────────────────────────
   const [puceSerial,   setPuceSerial]   = useState('');
   const [pucePhone,    setPucePhone]    = useState('');
@@ -201,11 +409,78 @@ const getNextNodeOfficeNum = () => {
       purchaseDate: matDate ? matDate : undefined, cost: Number(matCost) || 0,
       notes: matNotes.trim() || undefined, assignedNodeId: activeNodeId
     };
+
+    // Save new brand/model to catalog if added
+    let updatedCatalog = { ...catalog };
+    let catalogChanged = false;
+
+    if (selectedCatalogType && catalog[selectedCatalogType]) {
+      const typeKey = selectedCatalogType;
+      let brandToUse = selectedCatalogBrand;
+
+      if (selectedCatalogBrand === '__NEW__' && newBrandName.trim()) {
+        const brandNameClean = newBrandName.trim();
+        const brandExists = updatedCatalog[typeKey].brands.find(
+          (b) => b.name.toLowerCase() === brandNameClean.toLowerCase()
+        );
+
+        if (!brandExists) {
+          const newBrandObj: CatalogBrand = { name: brandNameClean, models: [] };
+          updatedCatalog[typeKey] = {
+            ...updatedCatalog[typeKey],
+            brands: [...updatedCatalog[typeKey].brands, newBrandObj],
+          };
+          catalogChanged = true;
+        }
+        brandToUse = brandNameClean;
+      }
+
+      if (brandToUse && (selectedCatalogModel === '__NEW__' || selectedCatalogBrand === '__NEW__') && newModelName.trim()) {
+        const modelNameClean = newModelName.trim();
+        const brandIndex = updatedCatalog[typeKey].brands.findIndex(
+          (b) => b.name.toLowerCase() === brandToUse.toLowerCase()
+        );
+
+        if (brandIndex > -1) {
+          const brandObj = updatedCatalog[typeKey].brands[brandIndex];
+          const modelExists = brandObj.models.find(
+            (m) => m.toLowerCase() === modelNameClean.toLowerCase()
+          );
+
+          if (!modelExists) {
+            const updatedBrands = [...updatedCatalog[typeKey].brands];
+            updatedBrands[brandIndex] = {
+              ...brandObj,
+              models: [...brandObj.models, modelNameClean],
+            };
+            updatedCatalog[typeKey] = {
+              ...updatedCatalog[typeKey],
+              brands: updatedBrands,
+            };
+            catalogChanged = true;
+          }
+        }
+      }
+
+      if (catalogChanged) {
+        setCatalog(updatedCatalog);
+        localStorage.setItem('tc_article_catalog', JSON.stringify(updatedCatalog));
+      }
+    }
+
     onAddMaterial(newMaterial);
     triggerSuccess(`Asset cataloged — QR ID: ${codification}`);
+    
+    // Reset inputs
     setMatName(''); setMatSerial(''); setMatCost(''); setMatNotes(''); setMatDate('');
     setMatCondition('Bon');
     setMatNodeId(subNodes[0]?.id || '');
+    
+    setSelectedCatalogType('');
+    setSelectedCatalogBrand('');
+    setSelectedCatalogModel('');
+    setNewBrandName('');
+    setNewModelName('');
   };
 
   // ─── Puce submit — assignedNodeId is optional (puce vierge allowed) ────────
@@ -469,6 +744,107 @@ assignedNodeId: (puceNodeId || undefined) as string,
                 </div>
               ) : (
                 <>
+                  {/* Dynamic Catalog Selectors */}
+                  <div className="bg-slate-50 border border-slate-200/50 rounded-2xl p-4.5 space-y-3">
+                    <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200/80 pb-2 flex items-center justify-between">
+                      <span>Quick Catalog Picker</span>
+                      
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Type d'article */}
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Type d'article</label>
+                        <select 
+                          className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                          value={selectedCatalogType} 
+                          onChange={(e) => handleCatalogTypeChange(e.target.value)}
+                        >
+                          <option value="">— Select Type —</option>
+                          {Object.entries(catalog).map(([key, item]) => (
+                            <option key={key} value={key}>{item.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Brand / Marque */}
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Marque</label>
+                        <select 
+                          className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer disabled:opacity-50"
+                          disabled={!selectedCatalogType}
+                          value={selectedCatalogBrand} 
+                          onChange={(e) => {
+                            setSelectedCatalogBrand(e.target.value);
+                            setSelectedCatalogModel('');
+                            setNewBrandName('');
+                            setNewModelName('');
+                          }}
+                        >
+                          <option value="">— Select Brand —</option>
+                          {availableBrands.map((b) => (
+                            <option key={b.name} value={b.name}>{b.name}</option>
+                          ))}
+                          {selectedCatalogType && (
+                            <option value="__NEW__" className="text-[#FF1E1E] font-bold">+ Ajouter une marque...</option>
+                          )}
+                        </select>
+                      </div>
+
+                      {/* Model / Modèle */}
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Modèle</label>
+                        <select 
+                          className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer disabled:opacity-50"
+                          disabled={!selectedCatalogBrand || selectedCatalogBrand === '__NEW__'}
+                          value={selectedCatalogModel} 
+                          onChange={(e) => {
+                            setSelectedCatalogModel(e.target.value);
+                            setNewModelName('');
+                          }}
+                        >
+                          <option value="">— Select Model —</option>
+                          {availableModels.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                          {selectedCatalogBrand && selectedCatalogBrand !== '__NEW__' && (
+                            <option value="__NEW__" className="text-[#FF1E1E] font-bold">+ Ajouter un modèle...</option>
+                          )}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Custom Brand Input */}
+                    {selectedCatalogBrand === '__NEW__' && (
+                      <div className="bg-white border border-[#FF1E1E]/20 rounded-xl p-2.5 space-y-1.5 transition-all">
+                        <label className="text-[9px] font-bold text-[#FF1E1E] block uppercase tracking-wider">Nom de la nouvelle marque</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="e.g. Samsung"
+                          className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                          value={newBrandName} 
+                          onChange={(e) => setNewBrandName(e.target.value)} 
+                        />
+                      </div>
+                    )}
+
+                    {/* Custom Model Input */}
+                    {(selectedCatalogModel === '__NEW__' || selectedCatalogBrand === '__NEW__') && (
+                      <div className="bg-white border border-[#FF1E1E]/20 rounded-xl p-2.5 space-y-1.5 transition-all">
+                        <label className="text-[9px] font-bold text-[#FF1E1E] block uppercase tracking-wider">Nom du nouveau modèle</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="e.g. T35F"
+                          className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+                          value={newModelName} 
+                          onChange={(e) => setNewModelName(e.target.value)} 
+                        />
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Asset Model / Name</label>
                     <input type="text" required placeholder="e.g. Dell PowerEdge Server R650"

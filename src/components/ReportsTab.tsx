@@ -1,18 +1,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Material, Department, SubNode } from '../types';
-import { Download, Printer, Filter, Cpu, Loader2, AlertCircle } from 'lucide-react';
+import { Download, Printer, Filter, Cpu, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx-js-style';
+
 interface ReportsTabProps {
   materials: Material[];
   departments: Department[];
 }
 
+const PAGE_SIZE = 20;
+
 export default function ReportsTab({ materials, departments }: ReportsTabProps) {
   const { t } = useTranslation();
   const [subNodes, setSubNodes] = useState<SubNode[]>([]);
 
-  // Fetch subnodes directly from the API — same source as PortalView
   useEffect(() => {
     fetch('/api/subnodes')
       .then(r => r.json())
@@ -25,11 +27,13 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [exportingCSV, setExportingCSV] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
 
   const filteredMaterials = useMemo(() => {
+    setCurrentPage(1); // reset page on any filter change
     return materials.filter(m => {
       const matchCompany = selectedCompany === 'ALL' || m.company === selectedCompany;
       const deptObj = departments.find(d => d.id === selectedDept);
@@ -44,151 +48,153 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
     });
   }, [materials, departments, subNodes, selectedCompany, selectedDept, selectedType, selectedStatus, searchTerm]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredMaterials.length / PAGE_SIZE));
+
+  // Paginated slice for screen display only — print uses filteredMaterials directly
+  const paginatedMaterials = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredMaterials.slice(start, start + PAGE_SIZE);
+  }, [filteredMaterials, currentPage]);
+
   const stats = useMemo(() => {
-  const totalCount = filteredMaterials.length;
-  const totalCost = filteredMaterials.reduce((acc, c) => acc + Number(c.cost), 0);
-  const active = filteredMaterials.filter(m => m.status === 'Active').length;
-  const repair = filteredMaterials.filter(m => m.status === 'Under Repair').length;
-  const storage = filteredMaterials.filter(m => m.status === 'In Storage').length;
-  const tcCost = materials.filter(m => m.company === 'TC').reduce((acc, c) => acc + Number(c.cost), 0);
-  const lxCost = materials.filter(m => m.company === 'LX').reduce((acc, c) => acc + Number(c.cost), 0);
-  const plCost = materials.filter(m => m.company === 'PL').reduce((acc, c) => acc + Number(c.cost), 0);
-  const typeCounts: Record<string, number> = {};
-  filteredMaterials.forEach(m => { typeCounts[m.type] = (typeCounts[m.type] || 0) + 1; });
-  return { totalCount, totalCost, active, repair, storage, companyCost: { TC: tcCost, LX: lxCost, PL: plCost }, typeCounts };
-}, [filteredMaterials, materials]);
+    const totalCount = filteredMaterials.length;
+    const totalCost = filteredMaterials.reduce((acc, c) => acc + Number(c.cost), 0);
+    const active = filteredMaterials.filter(m => m.status === 'Active').length;
+    const repair = filteredMaterials.filter(m => m.status === 'Under Repair').length;
+    const storage = filteredMaterials.filter(m => m.status === 'In Storage').length;
+    const tcCost = materials.filter(m => m.company === 'TC').reduce((acc, c) => acc + Number(c.cost), 0);
+    const lxCost = materials.filter(m => m.company === 'LX').reduce((acc, c) => acc + Number(c.cost), 0);
+    const plCost = materials.filter(m => m.company === 'PL').reduce((acc, c) => acc + Number(c.cost), 0);
+    const typeCounts: Record<string, number> = {};
+    filteredMaterials.forEach(m => { typeCounts[m.type] = (typeCounts[m.type] || 0) + 1; });
+    return { totalCount, totalCost, active, repair, storage, companyCost: { TC: tcCost, LX: lxCost, PL: plCost }, typeCounts };
+  }, [filteredMaterials, materials]);
 
-const handleCSVExport = () => {
-  setExportingCSV(true);
-
-  setTimeout(() => {
-    try {
-      const data = filteredMaterials.map(m => {
-        const deptName =
-          departments.find(d => d.deptNum === m.deptNum)?.name ?? '—';
-
-        const subNodeName =
-          subNodes.find(s => s.id === m.assignedNodeId)?.name ?? '—';
-
-        return {
-          Codification: m.codification,
-          Asset_Name: m.name,
-          Entity: m.company,
-          Department: deptName,
-          Sub_Node: subNodeName,
-          Serial_Number: m.serialNumber,
-          Notes: m.notes || '',
-          Status: m.status
-        };
-      });
-
-      const worksheet = XLSX.utils.json_to_sheet(data);
-
-      // Auto width columns
-      worksheet['!cols'] = [
-        { wch: 18 },
-        { wch: 25 },
-        { wch: 12 },
-        { wch: 25 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 30 },
-        { wch: 15 }
-      ];
-
-      const workbook = XLSX.utils.book_new();
-
-      XLSX.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        'Inventory Report'
-      );
-
-      XLSX.writeFile(
-        workbook,
-        `Inventory_Report_${selectedCompany}_${selectedDept}.xlsx`
-      );
-
-    } finally {
-      setExportingCSV(false);
-    }
-
-  }, 300);
-};
-  const handlePDFExport = () => {
-  setExportingPDF(true);
-
-  const styleId = 'report-print-style';
-
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement('style');
-    style.id = styleId;
-
-    // 👇 PUT THIS EXACTLY HERE
-    style.innerHTML = `
-      @media print {
-
-        body * {
-          visibility: hidden;
-        }
-
-        #report-print-root,
-        #report-print-root * {
-          visibility: visible;
-        }
-
-        #report-print-root {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
-          background: white;
-        }
-
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 10px;
-        }
-
-        th, td {
-          border: 1px solid #ccc;
-          padding: 6px;
-        }
-
-        thead {
-          display: table-header-group;
-        }
-
-        tr {
-          page-break-inside: avoid;
-        }
-
-        .no-print {
-          display: none !important;
-        }
+  const handleCSVExport = () => {
+    setExportingCSV(true);
+    setTimeout(() => {
+      try {
+        const data = filteredMaterials.map(m => {
+          const deptName = departments.find(d => d.deptNum === m.deptNum)?.name ?? '—';
+          const subNodeName = subNodes.find(s => s.id === m.assignedNodeId)?.name ?? '—';
+          return {
+            Codification: m.codification,
+            Asset_Name: m.name,
+            Entity: m.company,
+            Department: deptName,
+            Sub_Node: subNodeName,
+            Serial_Number: m.serialNumber,
+            Notes: m.notes || '',
+            Status: m.status
+          };
+        });
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        worksheet['!cols'] = [
+          { wch: 18 }, { wch: 25 }, { wch: 12 }, { wch: 25 },
+          { wch: 20 }, { wch: 20 }, { wch: 30 }, { wch: 15 }
+        ];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory Report');
+        XLSX.writeFile(workbook, `Inventory_Report_${selectedCompany}_${selectedDept}.xlsx`);
+      } finally {
+        setExportingCSV(false);
       }
-    `;
+    }, 300);
+  };
 
-    document.head.appendChild(style);
-  }
+  const handlePDFExport = () => {
+    setExportingPDF(true);
+    const styleId = 'report-print-style';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.innerHTML = `
+        @media print {
+          body * { visibility: hidden; }
+          #report-print-root, #report-print-root * { visibility: visible; }
+          #report-print-root {
+            position: absolute; left: 0; top: 0; width: 100%; background: white;
+          }
+          table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 8px;
+}
 
-  setTimeout(() => {
-    setExportingPDF(false);
-    window.print();
-  }, 300);
-};
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 3px 4px;
+  line-height: 1.2;
+}
+          thead { display: table-header-group; }
+          tr { page-break-inside: avoid; }
+          .no-print { display: none !important; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    setTimeout(() => {
+      setExportingPDF(false);
+      window.print();
+    }, 300);
+  };
 
   const maxCompanyCost = Math.max(stats.companyCost.TC, stats.companyCost.LX, stats.companyCost.PL) || 1;
-  const materialTypes = ['Printer', 'Server', 'Switch', 'Desktop', 'Screen', 'UPS', 'Laptop', 'Mouse' , 'Keyboard' ,   'Phone' , 'Cable' , 'Desk Phone' , 'Flash Disque' , 'Other'];
+  const materialTypes = ['Printer', 'Server', 'Switch', 'Desktop', 'Screen', 'UPS', 'Laptop', 'Mouse', 'Keyboard', 'Phone', 'Cable', 'Desk Phone', 'Flash Disque', 'Other'];
+
+  // Rows rendered: paginatedMaterials on screen, filteredMaterials when printing
+  const renderRows = (rows: Material[]) =>
+    rows.map((m) => {
+      const deptName = departments.find(d => d.deptNum === m.deptNum)?.name ?? '—';
+      const subNode = subNodes.find(s => s.id === m.assignedNodeId);
+      return (
+        <tr key={m.id} className="hover:bg-[#F5F5F7]/30 transition-colors">
+          <td className="py-3 px-5 font-mono font-bold text-[#1D1D1F] tracking-wider">{m.codification}</td>
+          <td className="py-3 px-4 font-semibold text-[#1D1D1F]">{m.name}</td>
+          <td className="py-3 px-4">
+            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold font-mono bg-[#F5F5F7] text-[#424245] border border-[#D2D2D7]/40">
+              {m.company}
+            </span>
+          </td>
+          <td className="py-3 px-4 font-medium text-[#424245]">{deptName}</td>
+          <td className="py-3 px-4 font-medium text-[#424245]">
+            {subNode ? (
+              <span className="flex items-center gap-1.5">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                  subNode.type === 'Office' ? 'bg-blue-400' :
+                  subNode.type === 'Person' ? 'bg-purple-400' :
+                  subNode.type === 'Cabinet' ? 'bg-amber-400' : 'bg-slate-400'
+                }`} />
+                {subNode.name}
+              </span>
+            ) : <span className="text-[#86868B]">—</span>}
+          </td>
+          <td className="py-3 px-4 font-mono text-[11px] text-[#86868B]">{m.serialNumber}</td>
+          <td className="py-3 px-4 text-[11px] text-[#86868B] max-w-50">
+            <div className="whitespace-pre-wrap wrap-break-word leading-relaxed">{m.notes ?? '—'}</div>
+          </td>
+          <td className="py-3 px-4">
+            <div className="flex justify-center">
+              <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                m.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' :
+                m.status === 'Under Repair' ? 'bg-[#FF9500]/10 text-[#FF9500]' :
+                m.status === 'In Storage' ? 'bg-[#FF1E1E]/10 text-[#FF1E1E]' :
+                'bg-[#86868B]/10 text-[#86868B]'
+              }`}>
+                {m.status}
+              </span>
+            </div>
+          </td>
+        </tr>
+      );
+    });
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-1">
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: placeholder */}
-
-        {/* KPI 2: Total Items */}
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868B] block">{t('audited_elements')}</span>
@@ -202,7 +208,6 @@ const handleCSVExport = () => {
           </div>
         </div>
 
-        {/* KPI 3: Status */}
         <div className="bg-white rounded-2xl border border-[#D2D2D7] p-5 shadow-sm flex flex-col justify-center gap-2">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868B]">{t('inventory_status_health')}</span>
           <div className="grid grid-cols-3 gap-2">
@@ -220,8 +225,6 @@ const handleCSVExport = () => {
             </div>
           </div>
         </div>
-
-        {/* KPI 4: placeholder */}
       </div>
 
       {/* Visual Analytics Grid */}
@@ -278,24 +281,22 @@ const handleCSVExport = () => {
       </div>
 
       {/* Table */}
-      <div
- id="report-print-root"
- 
- className="bg-white rounded-2xl border border-[#D2D2D7] shadow-sm overflow-hidden"
-> 
-{/* Print Title — only visible when printing */}
-<div className="hidden print:block p-5 border-b border-[#D2D2D7]">
-  <h1 className="text-lg font-bold text-[#1D1D1F]">
-    Rapport Inventaire
-    {selectedCompany !== 'ALL' && ` — ${selectedCompany}`}
-    {selectedDept !== 'ALL' && ` / ${departments.find(d => d.id === selectedDept)?.name ?? ''}`}
-    {selectedType !== 'ALL' && ` / ${selectedType}`}
-    {selectedStatus !== 'ALL' && ` / ${selectedStatus}`}
-  </h1>
-  <p className="text-xs text-[#86868B] mt-0.5">
-    {filteredMaterials.length} élément(s) — {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
-  </p>
-</div>
+      <div id="report-print-root" className="bg-white rounded-2xl border border-[#D2D2D7] shadow-sm overflow-hidden">
+
+        {/* Print Title */}
+        <div className="hidden print:block p-5 border-b border-[#D2D2D7]">
+          <h1 className="text-lg font-bold text-[#1D1D1F]">
+            Rapport Inventaire
+            {selectedCompany !== 'ALL' && ` — ${selectedCompany}`}
+            {selectedDept !== 'ALL' && ` / ${departments.find(d => d.id === selectedDept)?.name ?? ''}`}
+            {selectedType !== 'ALL' && ` / ${selectedType}`}
+            {selectedStatus !== 'ALL' && ` / ${selectedStatus}`}
+          </h1>
+          <p className="text-xs text-[#86868B] mt-0.5">
+            {filteredMaterials.length} élément(s) — {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+
         {/* Controls */}
         <div className="no-print p-5 border-b border-[#F5F5F7] bg-[#F5F5F7]/30 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -364,8 +365,8 @@ const handleCSVExport = () => {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Screen table — paginated */}
+        <div className="overflow-x-auto print:hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#FAF9F6] border-b border-[#D2D2D7] text-[10px] font-bold text-[#86868B] uppercase tracking-wider">
@@ -380,52 +381,7 @@ const handleCSVExport = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F5F5F7] text-xs text-[#424245]">
-              {filteredMaterials.length > 0 ? filteredMaterials.map((m) => {
-                const deptName = departments.find(d => d.deptNum === m.deptNum)?.name ?? '—';
-                const subNode = subNodes.find(s => s.id === m.assignedNodeId);
-                return (
-                  <tr key={m.id} className="hover:bg-[#F5F5F7]/30 transition-colors">
-                    <td className="py-3 px-5 font-mono font-bold text-[#1D1D1F] tracking-wider">{m.codification}</td>
-                    <td className="py-3 px-4 font-semibold text-[#1D1D1F]">{m.name}</td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold font-mono bg-[#F5F5F7] text-[#424245] border border-[#D2D2D7]/40">
-                        {m.company}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-medium text-[#424245]">{deptName}</td>
-                    <td className="py-3 px-4 font-medium text-[#424245]">
-                      {subNode ? (
-                        <span className="flex items-center gap-1.5">
-                          <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-                            subNode.type === 'Office' ? 'bg-blue-400' :
-                            subNode.type === 'Person' ? 'bg-purple-400' :
-                            subNode.type === 'Cabinet' ? 'bg-amber-400' : 'bg-slate-400'
-                          }`} />
-                          {subNode.name}
-                        </span>
-                      ) : <span className="text-[#86868B]">—</span>}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-[11px] text-[#86868B]">{m.serialNumber}</td>
-                    <td className="py-3 px-4 text-[11px] text-[#86868B] max-w-50">
-  <div className="whitespace-pre-wrap wrap-break-word leading-relaxed">
-    {m.notes ?? '—'}
-  </div>
-</td>
-                    <td className="py-3 px-4">
-                      <div className="flex justify-center">
-                        <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                          m.status === 'Active' ? 'bg-[#34C759]/10 text-[#34C759]' :
-                          m.status === 'Under Repair' ? 'bg-[#FF9500]/10 text-[#FF9500]' :
-                          m.status === 'In Storage' ? 'bg-[#FF1E1E]/10 text-[#FF1E1E]' :
-                          'bg-[#86868B]/10 text-[#86868B]'
-                        }`}>
-                          {m.status}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              }) : (
+              {paginatedMaterials.length > 0 ? renderRows(paginatedMaterials) : (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-[#86868B]">
                     <div className="space-y-1">
@@ -440,7 +396,79 @@ const handleCSVExport = () => {
           </table>
         </div>
 
-        {/* Footer */}
+        {/* Print table — all rows, no pagination bar */}
+        <div className="hidden print:block overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[#FAF9F6] border-b border-[#D2D2D7] text-[10px] font-bold text-[#86868B] uppercase tracking-wider">
+                <th className="py-3 px-5">{t('id_codification')}</th>
+                <th className="py-3 px-4">{t('asset_name')}</th>
+                <th className="py-3 px-4">{t('entity')}</th>
+                <th className="py-3 px-4">{t('department_name')}</th>
+                <th className="py-3 px-4">{t('utilisateur')}</th>
+                <th className="py-3 px-4">{t('serial_number')}</th>
+                <th className="py-3 px-4">{t('configuration')}</th>
+                <th className="py-3 px-4 text-center">{t('status')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F5F5F7] text-xs text-[#424245]">
+              {renderRows(filteredMaterials)}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination — screen only */}
+        {totalPages > 1 && (
+          <div className="no-print flex items-center justify-between px-5 py-3 border-t border-[#F5F5F7] bg-[#F5F5F7]/30">
+            <span className="text-[11px] text-[#86868B]">
+              Showing <span className="font-semibold text-[#1D1D1F]">{(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredMaterials.length)}</span> of <span className="font-semibold text-[#1D1D1F]">{filteredMaterials.length}</span>
+            </span>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-[#D2D2D7] bg-white hover:bg-[#F5F5F7] text-[#424245] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
+                <ChevronLeft className="w-3 h-3" /> Prev
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${i}`} className="px-2 text-[11px] text-[#86868B]">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p as number)}
+                      className={`min-w-[28px] px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
+                        currentPage === p
+                          ? 'bg-[#FF1E1E] text-white border-[#FF1E1E]'
+                          : 'bg-white text-[#424245] border-[#D2D2D7] hover:bg-[#F5F5F7]'
+                      }`}>
+                      {p}
+                    </button>
+                  )
+                )}
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-[#D2D2D7] bg-white hover:bg-[#F5F5F7] text-[#424245] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
+                Next <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+
+            <span className="text-[11px] text-[#86868B]">
+              Page <span className="font-semibold text-[#1D1D1F]">{currentPage}</span> of <span className="font-semibold text-[#1D1D1F]">{totalPages}</span>
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
