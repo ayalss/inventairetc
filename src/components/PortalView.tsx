@@ -18,7 +18,7 @@ interface CatalogBrand {
 
 interface CatalogItem {
   label: string;
-  deviceCategory: 'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Other';
+  deviceCategory: 'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Access Point' | 'Other';
   brands: CatalogBrand[];
 }
 
@@ -141,6 +141,21 @@ const DEFAULT_CATALOG: Record<string, CatalogItem> = {
       { name: 'Kingston', models: ['DataTraveler 32GB', 'DataTraveler 64GB'] },
       { name: 'SanDisk', models: ['Cruzer Blade 16GB', 'Cruzer Glide 64GB', 'Ultra Dual Drive 128GB'] },
       { name: 'Adata', models: ['UV128 32GB'] }
+    ]
+  },
+  // ─── NEW: Access Point WiFi ──────────────────────────────────────────────
+  'access point': {
+    label: 'Access Point WiFi',
+    deviceCategory: 'Access Point',
+    brands: [
+      { name: 'Ubiquiti', models: ['UAP-AC-LR', 'U6-Lite', 'U6-Pro', 'UAP-AC-Pro'] },
+      { name: 'TP-Link', models: ['EAP225', 'EAP245', 'EAP610', 'EAP110'] },
+      { name: 'Cisco', models: ['AIR-AP1815W', 'AIR-AP1840', 'AIR-AP2802E'] },
+      { name: 'MikroTik', models: ['cAP AC', 'wAP AC', 'RBcAPGi-5acD2nD'] },
+      { name: 'Ruckus', models: ['R510', 'R610', 'R710'] },
+      { name: 'Zyxel', models: ['NWA1100-NH', 'NWA5123-AC', 'WAC500'] },
+      { name: 'Aruba', models: ['AP-303', 'AP-505', 'AP-515'] },
+      { name: 'Generic', models: ['WiFi Access Point', 'Dual Band AP'] }
     ]
   },
   other: {
@@ -300,7 +315,8 @@ export default function PortalView({
   const [nodeType, setNodeType] = useState<'Office' | 'Person' | 'Cabinet' | 'Other'>('Person');
 
   const [matName, setMatName] = useState('');
-  const [matType, setMatType] = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Other'>('Laptop');
+  // ─── UPDATED: Added 'Access Point' to the type union ────────────────────
+  const [matType, setMatType] = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Access Point' | 'Other'>('Laptop');
   const [matStatus, setMatStatus] = useState<'Active' | 'Under Repair' | 'In Storage' | 'Retired'>('Active');
   // ── NEW: condition state ──
   const [matCondition, setMatCondition] = useState<'Bon' | 'Neuf'>('Bon');
@@ -1492,6 +1508,7 @@ const materialName = [
                     <div className="grid grid-cols-2 gap-3.5">
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">{t('asset_category')}</label>
+                        {/* ─── UPDATED: Added 'Access Point' to dropdown ─── */}
                         <select className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none cursor-pointer"
                           value={matType} onChange={(e) => setMatType(e.target.value as any)}>
                           <option value="Laptop">{t('laptop_notebook')}</option>
@@ -1507,6 +1524,7 @@ const materialName = [
                           <option value="Cable">{t('cable') ?? 'Cable'}</option>
                           <option value="Desk Phone">{t('desk_phone')}</option>
                           <option value="Flash Disque">{t('flash_disk')}</option>
+                          <option value="Access Point">Access Point WiFi</option>
                           <option value="Other">{t('other_equipment')}</option>
                         </select>
                       </div>
@@ -1712,6 +1730,7 @@ const materialName = [
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">{t('category')}</label>
+                      {/* ─── UPDATED: Added 'Access Point' to edit dropdown ─── */}
                       <select
                         className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 rounded-lg focus:outline-none cursor-pointer"
                         value={editingMaterial.type}
@@ -1729,6 +1748,7 @@ const materialName = [
                         <option value="Cable">{t('cable') ?? 'Cable'}</option>
                         <option value="Desk Phone">{t('desk_phone')}</option>
                         <option value="Flash Disque">{t('flash_disk')}</option>
+                        <option value="Access Point">Access Point WiFi</option>
                         <option value="Other">{t('other_equipment')}</option>
                       </select>
                     </div>

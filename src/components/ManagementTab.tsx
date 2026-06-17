@@ -17,7 +17,7 @@ interface CatalogBrand {
 
 interface CatalogItem {
   label: string;
-  deviceCategory: 'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Other';
+  deviceCategory: 'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Access Point' | 'Other';
   brands: CatalogBrand[];
 }
 
@@ -90,6 +90,7 @@ const DEFAULT_CATALOG: Record<string, CatalogItem> = {
       { name: 'HP', models: ['ProLiant DL360 Gen10', 'ProLiant ML30 Gen10'] }
     ]
   },
+  
   switch: {
     label: 'Switch / Gateway',
     deviceCategory: 'Switch',
@@ -140,6 +141,21 @@ const DEFAULT_CATALOG: Record<string, CatalogItem> = {
       { name: 'Kingston', models: ['DataTraveler 32GB', 'DataTraveler 64GB'] },
       { name: 'SanDisk', models: ['Cruzer Blade 16GB', 'Cruzer Glide 64GB', 'Ultra Dual Drive 128GB'] },
       { name: 'Adata', models: ['UV128 32GB'] }
+    ]
+  },
+  // ─── NEW: Access Point WiFi ──────────────────────────────────────────────
+  'access point': {
+    label: 'Access Point WiFi',
+    deviceCategory: 'Access Point',
+    brands: [
+      { name: 'Ubiquiti', models: ['UAP-AC-LR', 'U6-Lite', 'U6-Pro', 'UAP-AC-Pro'] },
+      { name: 'TP-Link', models: ['EAP225', 'EAP245', 'EAP610', 'EAP110'] },
+      { name: 'Cisco', models: ['AIR-AP1815W', 'AIR-AP1840', 'AIR-AP2802E'] },
+      { name: 'MikroTik', models: ['cAP AC', 'wAP AC', 'RBcAPGi-5acD2nD'] },
+      { name: 'Ruckus', models: ['R510', 'R610', 'R710'] },
+      { name: 'Zyxel', models: ['NWA1100-NH', 'NWA5123-AC', 'WAC500'] },
+      { name: 'Aruba', models: ['AP-303', 'AP-505', 'AP-515'] },
+      { name: 'Generic', models: ['WiFi Access Point', 'Dual Band AP'] }
     ]
   },
   other: {
@@ -248,7 +264,8 @@ export default function ManagementTab({
   const [nodeCin,       setNodeCin]       = useState('');
 
   const [matName,      setMatName]      = useState('');
-  const [matType,      setMatType]      = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Other'>('Desktop');
+  // ─── UPDATED: Added 'Access Point' to the type union ────────────────────
+  const [matType,      setMatType]      = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Access Point' | 'Other'>('Desktop');
   const [matStatus,    setMatStatus]    = useState<'Active' | 'Under Repair' | 'In Storage' | 'Retired'>('Active');
   const [matCondition, setMatCondition] = useState<'Bon' | 'Neuf'>('Bon');
   const [matSerial,    setMatSerial]    = useState('');
@@ -814,6 +831,7 @@ export default function ManagementTab({
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Device Category</label>
+                      {/* ─── UPDATED: Added 'Access Point' to dropdown ─── */}
                       <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
                         value={matType} onChange={(e) => setMatType(e.target.value as any)}>
                         <option value="Printer">Printer</option><option value="Server">Server Room Host</option>
@@ -822,7 +840,9 @@ export default function ManagementTab({
                         <option value="Laptop">Laptop Notebook</option><option value="Flash Disque">Flash Disque</option>
                         <option value="Mouse">Mouse</option><option value="Keyboard">Keyboard</option>
                         <option value="Phone">Phone</option><option value="Cable">Cable</option>
-                        <option value="Desk Phone">Desk Phone</option><option value="Other">Other</option>
+                        <option value="Desk Phone">Desk Phone</option>
+                        <option value="Access Point">Access Point WiFi</option>
+                        <option value="Other">Other</option>
                       </select>
                     </div>
                     <div>
@@ -1619,6 +1639,7 @@ export default function ManagementTab({
                         {subNodes.map(s => <option key={s.id} value={s.id}>{s.name} (office {s.officeNum})</option>)}
                       </select></div>
                     <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Category</label>
+                      {/* ─── UPDATED: Added 'Access Point' to edit dropdown ─── */}
                       <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.type}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, type: e.target.value } })}>
                         <option value="Printer">Printer</option><option value="Server">Server</option>
@@ -1627,7 +1648,9 @@ export default function ManagementTab({
                         <option value="Laptop">Laptop</option><option value="Flash Disque">Flash Disque</option>
                         <option value="Mouse">Mouse</option><option value="Keyboard">Keyboard</option>
                         <option value="Phone">Phone</option><option value="Cable">Cable</option>
-                        <option value="Desk Phone">Desk Phone</option><option value="Other">Other</option>
+                        <option value="Desk Phone">Desk Phone</option>
+                        <option value="Access Point">Access Point WiFi</option>
+                        <option value="Other">Other</option>
                       </select></div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">

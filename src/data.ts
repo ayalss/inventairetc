@@ -461,6 +461,26 @@ export const INITIAL_MATERIALS: Material[] = [
     cost: 6700,
     assignedNodeId: 'node-torvalds-crew',
     notes: 'Extremely high bandwidth inter-cluster fabric backplane.'
+  },
+
+  // ─── NEW: Access Point WiFi Example ────────────────────────────────────────
+  // materials under Natasha Romanoff (node-natasha, IT, LX, 201-B)
+  {
+    id: 'mat-14',
+    name: 'Ubiquiti UAP-AC-LR Access Point WiFi',
+    type: 'Access Point',
+    company: 'LX',
+    deptNum: '10',
+    officeNum: '201-B',
+    materialNum: '1',
+    codification: 'L-10-201-B-PA1',
+    status: 'Active',
+    condition: 'Neuf',
+    serialNumber: 'SN-AP-2024-001',
+    purchaseDate: '2024-12-01',
+    cost: 12000,
+    assignedNodeId: 'node-natasha',
+    notes: 'Long Range Access Point - 2.4/5GHz Dual Band - Covers entire floor'
   }
 ];
 
@@ -478,8 +498,9 @@ export function getMaterialTypePrefix(type: string): string {
     case 'Phone':    return 'PHN';
     case 'Cable':    return 'CBL';
     case 'Desk Phone':   return 'DP';
-    case 'Flash Disque':   return 'FD';
-    default:        return 'OTH';
+    case 'Flash Disque': return 'FD';
+    case 'Access Point': return 'PA'; // ← ADDED
+    default:         return 'OTH';
   }
 }
 
@@ -497,7 +518,7 @@ export function generateMaterialCodification(
   // Count assets of the SAME type on the SAME desk only → resets per type
   const countSameTypeOnDesk = existingMaterials.filter(
     (m) => m.officeNum === officeNum && m.type === type && m.company === company
-).length;
+  ).length;
 
   const materialNum = String(countSameTypeOnDesk + 1);
 

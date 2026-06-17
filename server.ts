@@ -30,6 +30,8 @@ const dbConfig: any = {
   database: process.env.DB_NAME || 'inventory',
   connectionTimeoutMillis: 4000,
   idleTimeoutMillis: 10000,
+  max: 10,              // ← ADD THIS (default is 10 but make it explicit)
+  allowExitOnIdle: true // ← ADD THIS
 };
 
 if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '') {
@@ -48,9 +50,153 @@ const memoryStore = {
   materials:   [...INITIAL_MATERIALS]   as any[],
   puces:        [] as any[],
   auditLogs:    [] as any[],
-  users: [] as any[]
+  users: [] as any[],
+  // ─── ADD THIS ──────────────────────────────────────────────
+  catalog: {
+    ecran: {
+      label: 'Écran / Screen',
+      deviceCategory: 'Screen',
+      brands: [
+        { name: 'LG', models: ['24MK600', 'Flatron IPS', 'UltraGear 27"'] },
+        { name: 'Samsung', models: ['SyncMaster', 'T35F', 'Odyssey G3'] },
+        { name: 'Dell', models: ['P2419H', 'E2216H'] },
+        { name: 'HP', models: ['EliteDisplay', 'ProDisplay'] }
+      ]
+    },
+    clavier: {
+      label: 'Clavier / Keyboard',
+      deviceCategory: 'Keyboard',
+      brands: [
+        { name: 'Dell', models: ['KB216', 'KB522'] },
+        { name: 'HP', models: ['K1500', 'Slim Keyboard'] },
+        { name: 'Logitech', models: ['K120', 'K270 Wireless', 'MX Keys'] },
+        { name: 'Lenovo', models: ['Essential Wired'] }
+      ]
+    },
+    souris: {
+      label: 'Souris / Mouse',
+      deviceCategory: 'Mouse',
+      brands: [
+        { name: 'Dell', models: ['MS116', 'MS3320W'] },
+        { name: 'HP', models: ['X1000', 'USB Mouse'] },
+        { name: 'Logitech', models: ['M90', 'M185 Wireless', 'MX Master 3'] },
+        { name: 'Lenovo', models: ['Essential USB'] }
+      ]
+    },
+    printer: {
+      label: 'Imprimante / Printer',
+      deviceCategory: 'Printer',
+      brands: [
+        { name: 'Canon', models: ['Pixma G3010', 'LBP6030', 'i-SENSYS LBP223dw'] },
+        { name: 'HP', models: ['LaserJet Pro M404dn', 'Smart Tank 515', 'Neverstop Laser'] },
+        { name: 'Epson', models: ['L3150 Wi-Fi', 'L805 Photo'] },
+        { name: 'Brother', models: ['HL-L2320D', 'DCP-T420W'] }
+      ]
+    },
+    laptop: {
+      label: 'Laptop / Notebook',
+      deviceCategory: 'Laptop',
+      brands: [
+        { name: 'Dell', models: ['Latitude 5420', 'Inspiron 15', 'XPS 13'] },
+        { name: 'HP', models: ['ProBook 450 G8', 'EliteBook 840', 'Pavilion 15'] },
+        { name: 'Lenovo', models: ['ThinkPad L14', 'IdeaPad 3', 'ThinkPad E15'] },
+        { name: 'ASUS', models: ['ZenBook', 'VivoBook'] },
+        { name: 'Apple', models: ['MacBook Air M1', 'MacBook Pro 14"'] }
+      ]
+    },
+    desktop: {
+      label: 'Desktop PC',
+      deviceCategory: 'Desktop',
+      brands: [
+        { name: 'Dell', models: ['OptiPlex 3080', 'OptiPlex 7090'] },
+        { name: 'HP', models: ['ProDesk 400', 'EliteDesk 800'] },
+        { name: 'Lenovo', models: ['ThinkCentre M70q', 'ThinkCentre Neo 50t'] }
+      ]
+    },
+    server: {
+      label: 'Server Room Host',
+      deviceCategory: 'Server',
+      brands: [
+        { name: 'Dell', models: ['PowerEdge R650', 'PowerEdge R750', 'PowerEdge T150'] },
+        { name: 'HP', models: ['ProLiant DL360 Gen10', 'ProLiant ML30 Gen10'] }
+      ]
+    },
+    switch: {
+      label: 'Switch / Gateway',
+      deviceCategory: 'Switch',
+      brands: [
+        { name: 'Cisco', models: ['Catalyst 2960', 'Catalyst 9200'] },
+        { name: 'TP-Link', models: ['TL-SG1024D', 'TL-SF1008D'] },
+        { name: 'D-Link', models: ['DES-1008A', 'DGS-1024D'] }
+      ]
+    },
+    ups: {
+      label: 'UPS (Onduleur)',
+      deviceCategory: 'UPS',
+      brands: [
+        { name: 'APC', models: ['Back-UPS 700VA', 'Easy UPS 1000VA', 'Smart-UPS 1500VA'] },
+        { name: 'Legrand', models: ['Keor SP 800VA', 'Niky S 1000VA'] },
+        { name: 'Eaton', models: ['5E 650i USB', 'Ellipse PRO 850'] }
+      ]
+    },
+    phone: {
+      label: 'Phone',
+      deviceCategory: 'Phone',
+      brands: [
+        { name: 'Samsung', models: ['Galaxy A12', 'Galaxy S21'] },
+        { name: 'Apple', models: ['iPhone 11', 'iPhone 13', 'iPhone SE'] },
+        { name: 'Xiaomi', models: ['Redmi Note 10', 'Poco X3'] }
+      ]
+    },
+    'desk phone': {
+      label: 'Desk Phone',
+      deviceCategory: 'Desk Phone',
+      brands: [
+        { name: 'Yealink', models: ['SIP-T31P', 'SIP-T46U'] },
+        { name: 'Cisco', models: ['IP Phone 7821', 'IP Phone 8845'] },
+        { name: 'Grandstream', models: ['GRP2601', 'GXP1625'] }
+      ]
+    },
+    cable: {
+      label: 'Cable',
+      deviceCategory: 'Cable',
+      brands: [
+        { name: 'Generic', models: ['Power Cable', 'HDMI Cable 1.5m', 'HDMI Cable 3m', 'Ethernet RJ45 2m', 'Ethernet RJ45 5m', 'VGA Cable'] }
+      ]
+    },
+    'flash disque': {
+      label: 'Flash Disque',
+      deviceCategory: 'Flash Disque',
+      brands: [
+        { name: 'Kingston', models: ['DataTraveler 32GB', 'DataTraveler 64GB'] },
+        { name: 'SanDisk', models: ['Cruzer Blade 16GB', 'Cruzer Glide 64GB', 'Ultra Dual Drive 128GB'] },
+        { name: 'Adata', models: ['UV128 32GB'] }
+      ]
+    },
+    // ─── ADD ACCESS POINT ──────────────────────────────────
+    'access point': {
+      label: 'Access Point WiFi',
+      deviceCategory: 'Access Point',
+      brands: [
+        { name: 'Ubiquiti', models: ['UAP-AC-LR', 'U6-Lite', 'U6-Pro', 'UAP-AC-Pro'] },
+        { name: 'TP-Link', models: ['EAP225', 'EAP245', 'EAP610', 'EAP110'] },
+        { name: 'Cisco', models: ['AIR-AP1815W', 'AIR-AP1840', 'AIR-AP2802E'] },
+        { name: 'MikroTik', models: ['cAP AC', 'wAP AC', 'RBcAPGi-5acD2nD'] },
+        { name: 'Ruckus', models: ['R510', 'R610', 'R710'] },
+        { name: 'Zyxel', models: ['NWA1100-NH', 'NWA5123-AC', 'WAC500'] },
+        { name: 'Aruba', models: ['AP-303', 'AP-505', 'AP-515'] },
+        { name: 'Generic', models: ['WiFi Access Point', 'Dual Band AP'] }
+      ]
+    },
+    other: {
+      label: 'Autre / Other',
+      deviceCategory: 'Other',
+      brands: [
+        { name: 'Generic', models: ['Standard Unit'] }
+      ]
+    }
+  }
 };
-
 // ==========================================
 // ROLE PERMISSIONS HELPER (mirrors frontend)
 // ==========================================
@@ -274,14 +420,19 @@ async function checkAndInitializeDatabase() {
 }
 
 // Re-check DB connection on each API request if currently disconnected
+// Replace your existing middleware with this:
 app.use(async (req, res, next) => {
   if (!isDbConnected && req.path.startsWith('/api/') && req.path !== '/api/db-status') {
+    let client;
     try {
-      const client = await pool.connect();
+      client = await pool.connect();
       isDbConnected = true;
       activeConnectionError = '';
-      client.release();
-    } catch { /* silent — handlers will fall back to memory */ }
+    } catch {
+      /* silent */
+    } finally {
+      client?.release(); // ← ALWAYS release, even on success
+    }
   }
   next();
 });
@@ -977,20 +1128,91 @@ app.get('/api/catalog', async (req, res) => {
   try {
     if (isDbConnected) {
       const { rows } = await pool.query(`SELECT value FROM settings WHERE key = 'article_catalog'`);
-      if (rows.length > 0) return res.json(rows[0].value);
+      if (rows.length > 0) {
+        // Return the catalog if it exists
+        return res.json(rows[0].value);
+      }
+      // If not found, return the default catalog from memory or a default object
+      // Check if we have a default catalog in memory
+      const defaultCatalog = (memoryStore as any).defaultCatalog;
+      if (defaultCatalog) {
+        return res.json(defaultCatalog);
+      }
+      // Return a minimal default catalog so the frontend doesn't break
+      return res.json({
+        ecran: { label: 'Écran / Screen', deviceCategory: 'Screen', brands: [] },
+        clavier: { label: 'Clavier / Keyboard', deviceCategory: 'Keyboard', brands: [] },
+        souris: { label: 'Souris / Mouse', deviceCategory: 'Mouse', brands: [] },
+        printer: { label: 'Imprimante / Printer', deviceCategory: 'Printer', brands: [] },
+        laptop: { label: 'Laptop / Notebook', deviceCategory: 'Laptop', brands: [] },
+        desktop: { label: 'Desktop PC', deviceCategory: 'Desktop', brands: [] },
+        server: { label: 'Server Room Host', deviceCategory: 'Server', brands: [] },
+        switch: { label: 'Switch / Gateway', deviceCategory: 'Switch', brands: [] },
+        ups: { label: 'UPS (Onduleur)', deviceCategory: 'UPS', brands: [] },
+        phone: { label: 'Phone', deviceCategory: 'Phone', brands: [] },
+        'desk phone': { label: 'Desk Phone', deviceCategory: 'Desk Phone', brands: [] },
+        cable: { label: 'Cable', deviceCategory: 'Cable', brands: [] },
+        'flash disque': { label: 'Flash Disque', deviceCategory: 'Flash Disque', brands: [] },
+        'access point': { label: 'Access Point WiFi', deviceCategory: 'Access Point', brands: [] },
+        other: { label: 'Autre / Other', deviceCategory: 'Other', brands: [] }
+      });
     } else {
+      // Memory fallback
       const saved = (memoryStore as any).catalog;
       if (saved) return res.json(saved);
+      // Return default catalog from memory store
+      const defaultCatalog = (memoryStore as any).defaultCatalog;
+      if (defaultCatalog) return res.json(defaultCatalog);
+      // Return minimal default
+      return res.json({
+        ecran: { label: 'Écran / Screen', deviceCategory: 'Screen', brands: [] },
+        clavier: { label: 'Clavier / Keyboard', deviceCategory: 'Keyboard', brands: [] },
+        souris: { label: 'Souris / Mouse', deviceCategory: 'Mouse', brands: [] },
+        printer: { label: 'Imprimante / Printer', deviceCategory: 'Printer', brands: [] },
+        laptop: { label: 'Laptop / Notebook', deviceCategory: 'Laptop', brands: [] },
+        desktop: { label: 'Desktop PC', deviceCategory: 'Desktop', brands: [] },
+        server: { label: 'Server Room Host', deviceCategory: 'Server', brands: [] },
+        switch: { label: 'Switch / Gateway', deviceCategory: 'Switch', brands: [] },
+        ups: { label: 'UPS (Onduleur)', deviceCategory: 'UPS', brands: [] },
+        phone: { label: 'Phone', deviceCategory: 'Phone', brands: [] },
+        'desk phone': { label: 'Desk Phone', deviceCategory: 'Desk Phone', brands: [] },
+        cable: { label: 'Cable', deviceCategory: 'Cable', brands: [] },
+        'flash disque': { label: 'Flash Disque', deviceCategory: 'Flash Disque', brands: [] },
+        'access point': { label: 'Access Point WiFi', deviceCategory: 'Access Point', brands: [] },
+        other: { label: 'Autre / Other', deviceCategory: 'Other', brands: [] }
+      });
     }
-    res.json(null); // null = use DEFAULT_CATALOG on frontend
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching catalog:', err);
+    // Return a default catalog on error so frontend doesn't break
+    res.json({
+      ecran: { label: 'Écran / Screen', deviceCategory: 'Screen', brands: [] },
+      clavier: { label: 'Clavier / Keyboard', deviceCategory: 'Keyboard', brands: [] },
+      souris: { label: 'Souris / Mouse', deviceCategory: 'Mouse', brands: [] },
+      printer: { label: 'Imprimante / Printer', deviceCategory: 'Printer', brands: [] },
+      laptop: { label: 'Laptop / Notebook', deviceCategory: 'Laptop', brands: [] },
+      desktop: { label: 'Desktop PC', deviceCategory: 'Desktop', brands: [] },
+      server: { label: 'Server Room Host', deviceCategory: 'Server', brands: [] },
+      switch: { label: 'Switch / Gateway', deviceCategory: 'Switch', brands: [] },
+      ups: { label: 'UPS (Onduleur)', deviceCategory: 'UPS', brands: [] },
+      phone: { label: 'Phone', deviceCategory: 'Phone', brands: [] },
+      'desk phone': { label: 'Desk Phone', deviceCategory: 'Desk Phone', brands: [] },
+      cable: { label: 'Cable', deviceCategory: 'Cable', brands: [] },
+      'flash disque': { label: 'Flash Disque', deviceCategory: 'Flash Disque', brands: [] },
+      'access point': { label: 'Access Point WiFi', deviceCategory: 'Access Point', brands: [] },
+      other: { label: 'Autre / Other', deviceCategory: 'Other', brands: [] }
+    });
   }
 });
 
 app.post('/api/catalog', async (req, res) => {
   const catalog = req.body;
   try {
+    // Validate the catalog data
+    if (!catalog || typeof catalog !== 'object') {
+      return res.status(400).json({ error: 'Invalid catalog data' });
+    }
+    
     if (isDbConnected) {
       await pool.query(`
         INSERT INTO settings (key, value) VALUES ('article_catalog', $1)
@@ -1001,6 +1223,7 @@ app.post('/api/catalog', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err: any) {
+    console.error('Error saving catalog:', err);
     res.status(500).json({ error: err.message });
   }
 });
