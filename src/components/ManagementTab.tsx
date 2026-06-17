@@ -218,18 +218,17 @@ export default function ManagementTab({
 
   // ─── Auto-number helpers ───────────────────────────────────────────────────
   const getNextDeptNum          = () => String(departments.length + 1);
-  // ✅ FIX
-const getNextManagerOfficeNum = () =>
-  String(managers.filter(m => m.company === mngCompany).length + 1);
+  const getNextManagerOfficeNum = () =>
+    String(managers.filter(m => m.company === mngCompany).length + 1);
 
-const getNextNodeOfficeNum = () => {
-  const selectedMng = managers.find(m => m.id === nodeManagerId);
-  const company = selectedMng?.company || 'TC';
-  return String(subNodes.filter(s => {
-    const mng = managers.find(m => m.id === s.managerId);
-    return mng?.company === company;
-  }).length + 1);
-};
+  const getNextNodeOfficeNum = () => {
+    const selectedMng = managers.find(m => m.id === nodeManagerId);
+    const company = selectedMng?.company || 'TC';
+    return String(subNodes.filter(s => {
+      const mng = managers.find(m => m.id === s.managerId);
+      return mng?.company === company;
+    }).length + 1);
+  };
 
   // ─── Form states ───────────────────────────────────────────────────────────
   const [deptName, setDeptName] = useState('');
@@ -259,17 +258,20 @@ const getNextNodeOfficeNum = () => {
   const [matNotes,     setMatNotes]     = useState('');
 
   // ─── Dynamic Catalog Picker states ─────────────────────────────────────────
-  const [catalog, setCatalog] = useState<Record<string, CatalogItem>>(() => {
-    const saved = localStorage.getItem('tc_article_catalog');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse catalog from localStorage', e);
-      }
-    }
-    return DEFAULT_CATALOG;
-  });
+  // ✅ FIX: initialize from DEFAULT_CATALOG, then load from API
+  const [catalog, setCatalog] = useState<Record<string, CatalogItem>>(DEFAULT_CATALOG);
+
+  // ✅ FIX: load catalog from server on mount (shared across all browsers/devices)
+  useEffect(() => {
+    fetch('/api/catalog')
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+          setCatalog(data);
+        }
+      })
+      .catch(() => {}); // silently fall back to DEFAULT_CATALOG
+  }, []);
 
   const [selectedCatalogType, setSelectedCatalogType] = useState<string>('');
   const [selectedCatalogBrand, setSelectedCatalogBrand] = useState<string>('');
@@ -283,7 +285,6 @@ const getNextNodeOfficeNum = () => {
     setSelectedCatalogModel('');
     setNewBrandName('');
     setNewModelName('');
-
     if (type && catalog[type]) {
       setMatType(catalog[type].deviceCategory);
     }
@@ -302,27 +303,27 @@ const getNextNodeOfficeNum = () => {
 
   useEffect(() => {
     if (!selectedCatalogType) return;
-    
     const nameParts = [selectedCatalogType];
-
     let brand = '';
-    if (selectedCatalogBrand === '__NEW__') {
-      brand = newBrandName.trim();
-    } else if (selectedCatalogBrand) {
-      brand = selectedCatalogBrand;
-    }
+    if (selectedCatalogBrand === '__NEW__') brand = newBrandName.trim();
+    else if (selectedCatalogBrand) brand = selectedCatalogBrand;
     if (brand) nameParts.push(brand);
-
     let model = '';
-    if (selectedCatalogModel === '__NEW__') {
-      model = newModelName.trim();
-    } else if (selectedCatalogModel) {
-      model = selectedCatalogModel;
-    }
+    if (selectedCatalogModel === '__NEW__') model = newModelName.trim();
+    else if (selectedCatalogModel) model = selectedCatalogModel;
     if (model) nameParts.push(model);
-
     setMatName(nameParts.join(' '));
   }, [selectedCatalogType, selectedCatalogBrand, newBrandName, selectedCatalogModel, newModelName]);
+
+  // ✅ FIX: save catalog to API (shared DB) instead of localStorage
+  const saveCatalogToServer = (updatedCatalog: Record<string, CatalogItem>) => {
+    setCatalog(updatedCatalog);
+    fetch('/api/catalog', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedCatalog),
+    }).catch(() => {}); // fire-and-forget
+  };
 
   // ─── Puce form state ───────────────────────────────────────────────────────
   const [puceSerial,   setPuceSerial]   = useState('');
@@ -331,7 +332,6 @@ const getNextNodeOfficeNum = () => {
   const [puceCredit,   setPuceCredit]   = useState('');
   const [puceStatus,   setPuceStatus]   = useState<'Active' | 'Suspended'>('Active');
   const [puceContract, setPuceContract] = useState<'TC' | 'LX' | 'PL'>('TC');
-  // '' = puce vierge (unassigned), otherwise a subNode id
   const [puceNodeId,   setPuceNodeId]   = useState('');
 
   const triggerSuccess = (msg: string) => {
@@ -410,72 +410,70 @@ const getNextNodeOfficeNum = () => {
       notes: matNotes.trim() || undefined, assignedNodeId: activeNodeId
     };
 
-    // Save new brand/model to catalog if added
+    // ✅ FIX: save new brand/model to catalog via API
     let updatedCatalog = { ...catalog };
     let catalogChanged = false;
 
     if (selectedCatalogType && catalog[selectedCatalogType]) {
       const typeKey = selectedCatalogType;
-      let brandToUse = selectedCatalogBrand;
 
-      if (selectedCatalogBrand === '__NEW__' && newBrandName.trim()) {
-        const brandNameClean = newBrandName.trim();
+      // Resolve brand name upfront
+      let brandToUse = selectedCatalogBrand === '__NEW__'
+        ? newBrandName.trim()
+        : selectedCatalogBrand;
+
+      // Save new brand if needed
+      if (selectedCatalogBrand === '__NEW__' && brandToUse) {
         const brandExists = updatedCatalog[typeKey].brands.find(
-          (b) => b.name.toLowerCase() === brandNameClean.toLowerCase()
+          b => b.name.toLowerCase() === brandToUse.toLowerCase()
         );
-
         if (!brandExists) {
-          const newBrandObj: CatalogBrand = { name: brandNameClean, models: [] };
           updatedCatalog[typeKey] = {
             ...updatedCatalog[typeKey],
-            brands: [...updatedCatalog[typeKey].brands, newBrandObj],
+            brands: [...updatedCatalog[typeKey].brands, { name: brandToUse, models: [] }],
           };
           catalogChanged = true;
         }
-        brandToUse = brandNameClean;
       }
 
-      if (brandToUse && (selectedCatalogModel === '__NEW__' || selectedCatalogBrand === '__NEW__') && newModelName.trim()) {
-        const modelNameClean = newModelName.trim();
-        const brandIndex = updatedCatalog[typeKey].brands.findIndex(
-          (b) => b.name.toLowerCase() === brandToUse.toLowerCase()
-        );
+      // Resolve model name upfront
+      const modelToUse = selectedCatalogModel === '__NEW__'
+        ? newModelName.trim()
+        : selectedCatalogModel;
 
+      // Save new model if needed (works for both new brand + new model, AND existing brand + new model)
+      if (brandToUse && modelToUse && selectedCatalogModel === '__NEW__') {
+        const brandIndex = updatedCatalog[typeKey].brands.findIndex(
+          b => b.name.toLowerCase() === brandToUse.toLowerCase()
+        );
         if (brandIndex > -1) {
           const brandObj = updatedCatalog[typeKey].brands[brandIndex];
           const modelExists = brandObj.models.find(
-            (m) => m.toLowerCase() === modelNameClean.toLowerCase()
+            m => m.toLowerCase() === modelToUse.toLowerCase()
           );
-
           if (!modelExists) {
             const updatedBrands = [...updatedCatalog[typeKey].brands];
             updatedBrands[brandIndex] = {
               ...brandObj,
-              models: [...brandObj.models, modelNameClean],
+              models: [...brandObj.models, modelToUse],
             };
-            updatedCatalog[typeKey] = {
-              ...updatedCatalog[typeKey],
-              brands: updatedBrands,
-            };
+            updatedCatalog[typeKey] = { ...updatedCatalog[typeKey], brands: updatedBrands };
             catalogChanged = true;
           }
         }
       }
 
       if (catalogChanged) {
-        setCatalog(updatedCatalog);
-        localStorage.setItem('tc_article_catalog', JSON.stringify(updatedCatalog));
+        saveCatalogToServer(updatedCatalog);
       }
     }
 
     onAddMaterial(newMaterial);
     triggerSuccess(`Asset cataloged — QR ID: ${codification}`);
     
-    // Reset inputs
     setMatName(''); setMatSerial(''); setMatCost(''); setMatNotes(''); setMatDate('');
     setMatCondition('Bon');
     setMatNodeId(subNodes[0]?.id || '');
-    
     setSelectedCatalogType('');
     setSelectedCatalogBrand('');
     setSelectedCatalogModel('');
@@ -483,11 +481,9 @@ const getNextNodeOfficeNum = () => {
     setNewModelName('');
   };
 
-  // ─── Puce submit — assignedNodeId is optional (puce vierge allowed) ────────
   const handlePuceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!puceSerial || !pucePhone || !pucePuk) return;
-
     const newPuce: Puce = {
       id: `puce-${Date.now()}`,
       serialNumber: puceSerial.trim(),
@@ -496,9 +492,7 @@ const getNextNodeOfficeNum = () => {
       monthlyCredit: Number(puceCredit) || 0,
       status: puceStatus,
       contractCompany: puceContract,
-      // undefined when no node selected → puce vierge
-      // FIXED — explicit cast satisfies TS regardless of types.ts state
-assignedNodeId: (puceNodeId || undefined) as string,
+      assignedNodeId: (puceNodeId || undefined) as string,
     };
     onAddPuce(newPuce);
     const locationLabel = puceNodeId
@@ -508,7 +502,7 @@ assignedNodeId: (puceNodeId || undefined) as string,
     setPuceSerial(''); setPucePhone(''); setPucePuk(''); setPuceCredit('');
     setPuceStatus('Active');
     setPuceContract('TC');
-    setPuceNodeId(''); // reset to unassigned
+    setPuceNodeId('');
   };
 
   const handleEditSave = (e: React.FormEvent) => {
@@ -583,10 +577,8 @@ assignedNodeId: (puceNodeId || undefined) as string,
     if (!files || files.length === 0) return;
     const node = subNodes.find(n => n.id === nodeId) as SubNodeWithDocs;
     if (!node) return;
-
     const formData = new FormData();
     Array.from(files).forEach(f => formData.append('files', f));
-
     try {
       const res = await fetch(`/api/subnodes/${nodeId}/documents`, { method: 'POST', body: formData });
       const newDocs: SubNodeDocument[] = await res.json();
@@ -600,7 +592,6 @@ assignedNodeId: (puceNodeId || undefined) as string,
     }
   };
 
-  // ─── Document delete handler ──────────────────────────────────────────────
   const handleDeleteDocument = async (nodeId: string, docId: string) => {
     try {
       await fetch(`/api/subnodes/${nodeId}/documents/${docId}`, { method: 'DELETE' });
@@ -662,6 +653,7 @@ assignedNodeId: (puceNodeId || undefined) as string,
             <div key={mat.id} className="space-y-0.5">
               <p><strong>{mat.type} :</strong> {mat.name}</p>
               <p><strong>Marque et modèle :</strong> {mat.name}</p>
+              <p><strong>État :</strong> {mat.condition || 'Bon'}</p>
               {mat.notes && <p className="whitespace-pre-wrap text-[12.5px] leading-[1.55]">{mat.notes}</p>}
             </div>
           ))}
@@ -669,7 +661,7 @@ assignedNodeId: (puceNodeId || undefined) as string,
         <div className="mt-5 text-[13px] leading-[1.7] space-y-3">
           <p>Je reconnais avoir reçu ce matériel en <strong>
             {selectedMaterials[0]?.condition === 'Neuf' ? 'état neuf' : 'bon état'}
-          </strong>{" "}état de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
+          </strong>{" "}de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
           <p>Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.</p>
           <p>En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel en bon état dans les plus brefs délais.</p>
         </div>
@@ -746,101 +738,59 @@ assignedNodeId: (puceNodeId || undefined) as string,
                 <>
                   {/* Dynamic Catalog Selectors */}
                   <div className="bg-slate-50 border border-slate-200/50 rounded-2xl p-4.5 space-y-3">
-                    <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200/80 pb-2 flex items-center justify-between">
+                    <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200/80 pb-2">
                       <span>Quick Catalog Picker</span>
-                      
                     </div>
-                    
                     <div className="grid grid-cols-3 gap-2">
-                      {/* Type d'article */}
                       <div>
                         <label className="text-[9px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Type d'article</label>
-                        <select 
-                          className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
-                          value={selectedCatalogType} 
-                          onChange={(e) => handleCatalogTypeChange(e.target.value)}
-                        >
+                        <select className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                          value={selectedCatalogType} onChange={(e) => handleCatalogTypeChange(e.target.value)}>
                           <option value="">— Select Type —</option>
                           {Object.entries(catalog).map(([key, item]) => (
                             <option key={key} value={key}>{item.label}</option>
                           ))}
                         </select>
                       </div>
-
-                      {/* Brand / Marque */}
                       <div>
                         <label className="text-[9px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Marque</label>
-                        <select 
-                          className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer disabled:opacity-50"
+                        <select className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer disabled:opacity-50"
                           disabled={!selectedCatalogType}
-                          value={selectedCatalogBrand} 
-                          onChange={(e) => {
-                            setSelectedCatalogBrand(e.target.value);
-                            setSelectedCatalogModel('');
-                            setNewBrandName('');
-                            setNewModelName('');
-                          }}
-                        >
+                          value={selectedCatalogBrand}
+                          onChange={(e) => { setSelectedCatalogBrand(e.target.value); setSelectedCatalogModel(''); setNewBrandName(''); setNewModelName(''); }}>
                           <option value="">— Select Brand —</option>
-                          {availableBrands.map((b) => (
-                            <option key={b.name} value={b.name}>{b.name}</option>
-                          ))}
-                          {selectedCatalogType && (
-                            <option value="__NEW__" className="text-[#FF1E1E] font-bold">+ Ajouter une marque...</option>
-                          )}
+                          {availableBrands.map((b) => (<option key={b.name} value={b.name}>{b.name}</option>))}
+                          {selectedCatalogType && (<option value="__NEW__" className="text-[#FF1E1E] font-bold">+ Ajouter une marque...</option>)}
                         </select>
                       </div>
-
-                      {/* Model / Modèle */}
                       <div>
                         <label className="text-[9px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Modèle</label>
-                        <select 
-                          className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer disabled:opacity-50"
+                        <select className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer disabled:opacity-50"
                           disabled={!selectedCatalogBrand || selectedCatalogBrand === '__NEW__'}
-                          value={selectedCatalogModel} 
-                          onChange={(e) => {
-                            setSelectedCatalogModel(e.target.value);
-                            setNewModelName('');
-                          }}
-                        >
+                          value={selectedCatalogModel}
+                          onChange={(e) => { setSelectedCatalogModel(e.target.value); setNewModelName(''); }}>
                           <option value="">— Select Model —</option>
-                          {availableModels.map((m) => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
+                          {availableModels.map((m) => (<option key={m} value={m}>{m}</option>))}
                           {selectedCatalogBrand && selectedCatalogBrand !== '__NEW__' && (
                             <option value="__NEW__" className="text-[#FF1E1E] font-bold">+ Ajouter un modèle...</option>
                           )}
                         </select>
                       </div>
                     </div>
-
-                    {/* Custom Brand Input */}
                     {selectedCatalogBrand === '__NEW__' && (
-                      <div className="bg-white border border-[#FF1E1E]/20 rounded-xl p-2.5 space-y-1.5 transition-all">
+                      <div className="bg-white border border-[#FF1E1E]/20 rounded-xl p-2.5 space-y-1.5">
                         <label className="text-[9px] font-bold text-[#FF1E1E] block uppercase tracking-wider">Nom de la nouvelle marque</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="e.g. Samsung"
+                        <input type="text" required placeholder="e.g. Samsung"
                           className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
-                          value={newBrandName} 
-                          onChange={(e) => setNewBrandName(e.target.value)} 
-                        />
+                          value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} />
                       </div>
                     )}
-
-                    {/* Custom Model Input */}
                     {(selectedCatalogModel === '__NEW__' || selectedCatalogBrand === '__NEW__') && (
-                      <div className="bg-white border border-[#FF1E1E]/20 rounded-xl p-2.5 space-y-1.5 transition-all">
+                      <div className="bg-white border border-[#FF1E1E]/20 rounded-xl p-2.5 space-y-1.5">
                         <label className="text-[9px] font-bold text-[#FF1E1E] block uppercase tracking-wider">Nom du nouveau modèle</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="e.g. T35F"
+                        <input type="text" required placeholder="e.g. T35F"
                           className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
-                          value={newModelName} 
-                          onChange={(e) => setNewModelName(e.target.value)} 
-                        />
+                          value={newModelName} onChange={(e) => setNewModelName(e.target.value)} />
                       </div>
                     )}
                   </div>
@@ -888,13 +838,8 @@ assignedNodeId: (puceNodeId || undefined) as string,
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">État</label>
                     <div className="grid grid-cols-2 gap-2">
                       {(['Bon', 'Neuf'] as const).map((c) => (
-                        <button key={c} type="button"
-                          onClick={() => setMatCondition(c)}
-                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
-                            matCondition === c
-                              ? 'bg-slate-900 text-white shadow-xs'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
-                          }`}>
+                        <button key={c} type="button" onClick={() => setMatCondition(c)}
+                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${matCondition === c ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'}`}>
                           {c}
                         </button>
                       ))}
@@ -944,29 +889,18 @@ assignedNodeId: (puceNodeId || undefined) as string,
                   Registers SIM cards. Location is optional — leave blank to create a <span className="font-bold text-amber-600">puce Non affectée</span> and assign it later.
                 </p>
               </div>
-
-              {/* ── Location — optional ── */}
               <div>
                 <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
-                  Infrastructure Location
-                  <span className="ml-1.5 normal-case font-normal text-slate-400">(optional)</span>
+                  Infrastructure Location <span className="ml-1.5 normal-case font-normal text-slate-400">(optional)</span>
                 </label>
-                <select
-                  className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
-                  value={puceNodeId}
-                  onChange={(e) => setPuceNodeId(e.target.value)}
-                >
+                <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer"
+                  value={puceNodeId} onChange={(e) => setPuceNodeId(e.target.value)}>
                   <option value="">— Non affectée —</option>
                   {subNodes.map((node) => {
                     const mng = managers.find(m => m.id === node.managerId);
-                    return (
-                      <option key={node.id} value={node.id}>
-                        {node.name} (Office {node.officeNum} — {mng ? mng.name : 'Unknown'})
-                      </option>
-                    );
+                    return <option key={node.id} value={node.id}>{node.name} (Office {node.officeNum} — {mng ? mng.name : 'Unknown'})</option>;
                   })}
                 </select>
-                {/* visual hint when nothing selected */}
                 {!puceNodeId && (
                   <p className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-600 font-semibold">
                     <AlertTriangle className="w-3 h-3 shrink-0" />
@@ -974,7 +908,6 @@ assignedNodeId: (puceNodeId || undefined) as string,
                   </p>
                 )}
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">S/N</label>
@@ -989,14 +922,12 @@ assignedNodeId: (puceNodeId || undefined) as string,
                     value={pucePhone} onChange={(e) => setPucePhone(e.target.value)} />
                 </div>
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Code PUK</label>
                 <input type="text" required placeholder="e.g. 12345678"
                   className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] font-mono"
                   value={pucePuk} onChange={(e) => setPucePuk(e.target.value)} />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Crédit / mois (DA)</label>
@@ -1013,29 +944,20 @@ assignedNodeId: (puceNodeId || undefined) as string,
                   </select>
                 </div>
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
                   Contrat Ooredoo <span className="text-[#FF1E1E]">*</span>
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {(['TC', 'LX', 'PL'] as const).map((co) => (
-                    <button key={co} type="button"
-                      onClick={() => setPuceContract(co)}
-                      className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
-                        puceContract === co
-                          ? 'bg-slate-900 text-white shadow-xs'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}>
+                    <button key={co} type="button" onClick={() => setPuceContract(co)}
+                      className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${puceContract === co ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'}`}>
                       {co}
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-[#86868B] mt-1">
-                  Whose Ooredoo contract this SIM is billed under — independent of where it's physically used.
-                </p>
+                <p className="text-[10px] text-[#86868B] mt-1">Whose Ooredoo contract this SIM is billed under — independent of where it's physically used.</p>
               </div>
-
               <button type="submit"
                 className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2">
                 <Plus className="w-4 h-4 text-[#FF1E1E]" />
@@ -1230,7 +1152,7 @@ assignedNodeId: (puceNodeId || undefined) as string,
               value={inspectorSearch} onChange={(e) => setInspectorSearch(e.target.value)} />
           </div>
 
-          {/* Décharge action bar — only on Materials tab */}
+          {/* Décharge action bar */}
           {inspectorTab === 'materials' && (
             <div className="mt-3 flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
               <div className="flex items-center gap-2">
@@ -1274,8 +1196,7 @@ assignedNodeId: (puceNodeId || undefined) as string,
                   <div key={m.id}
                     className={`flex justify-between items-center p-3.5 rounded-2xl border transition-colors gap-3 ${isChecked ? 'bg-[#FF1E1E]/5 border-[#FF1E1E]/30 ring-1 ring-[#FF1E1E]/20' : isBlocked ? 'bg-slate-50 border-[#D2D2D7]/40 opacity-40' : 'bg-slate-50 border-[#D2D2D7]/40 hover:bg-slate-100/40'}`}>
                     <button onClick={() => toggleDechargeSelect(m.id)} disabled={isBlocked}
-                      className={`shrink-0 transition-colors ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                      title={isBlocked ? 'Doit appartenir au même utilisateur' : ''}>
+                      className={`shrink-0 transition-colors ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                       {isChecked ? <CheckSquare className="w-4 h-4 text-[#FF1E1E]" /> : <Square className={`w-4 h-4 ${isBlocked ? 'text-slate-300' : 'text-slate-400 hover:text-slate-600'}`} />}
                     </button>
                     <div className="truncate min-w-0 flex-1">
@@ -1331,15 +1252,10 @@ assignedNodeId: (puceNodeId || undefined) as string,
                           {p.status === 'Active' ? 'Actif' : 'Suspendu'}
                         </span>
                         {p.contractCompany && (
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border ${
-                            p.contractCompany === 'TC' ? 'bg-red-100 text-red-700 border-red-200' :
-                            p.contractCompany === 'LX' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                            'bg-emerald-100 text-emerald-700 border-emerald-200'
-                          }`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border ${p.contractCompany === 'TC' ? 'bg-red-100 text-red-700 border-red-200' : p.contractCompany === 'LX' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
                             {p.contractCompany}
                           </span>
                         )}
-                        {/* Puce vierge badge */}
                         {isVierge && (
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-0.5">
                             <AlertTriangle className="w-2.5 h-2.5" />Non affectée
@@ -1352,9 +1268,7 @@ assignedNodeId: (puceNodeId || undefined) as string,
                           : <>{node ? node.name : 'Unknown Desk'} — Crédit/mois : {Number(p.monthlyCredit || 0).toLocaleString()} DA</>
                         }
                       </span>
-                      <span className="text-[10px] text-[#86868B] block truncate">
-                        S/N : {p.serialNumber} — PUK : {p.pukCode}
-                      </span>
+                      <span className="text-[10px] text-[#86868B] block truncate">S/N : {p.serialNumber} — PUK : {p.pukCode}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button onClick={() => setEditingItem({ type: 'puce', id: p.id, data: { ...p } })}
@@ -1564,7 +1478,6 @@ assignedNodeId: (puceNodeId || undefined) as string,
             </div>
             <form onSubmit={handleEditSave} className="space-y-4">
 
-              {/* EDIT DEPT */}
               {editingItem.type === 'dept' && (
                 <div className="space-y-3">
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Department Name</label>
@@ -1576,7 +1489,6 @@ assignedNodeId: (puceNodeId || undefined) as string,
                 </div>
               )}
 
-              {/* EDIT MANAGER */}
               {editingItem.type === 'manager' && (
                 <div className="space-y-3">
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Full Name</label>
@@ -1611,14 +1523,13 @@ assignedNodeId: (puceNodeId || undefined) as string,
                 </div>
               )}
 
-              {/* EDIT SUBNODE */}
               {editingItem.type === 'subnode' && (
                 <div className="space-y-3">
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Full Name</label>
                     <input type="text" required className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.name}
                       onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } })} /></div>
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Role / Title</label>
-                    <input type="text" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" placeholder="e.g. Méthodiste Luxe Tile" value={editingItem.data.role || ''}
+                    <input type="text" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none" value={editingItem.data.role || ''}
                       onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, role: e.target.value } })} /></div>
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">CIN (optional)</label>
                     <input type="text" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-mono" value={editingItem.data.cin || ''}
@@ -1642,29 +1553,21 @@ assignedNodeId: (puceNodeId || undefined) as string,
                 </div>
               )}
 
-              {/* EDIT PUCE — assignedNodeId is now optional */}
               {editingItem.type === 'puce' && (
                 <div className="space-y-3">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">
-                      Location Node
-                      <span className="ml-1.5 normal-case font-normal text-slate-400">(optional — laisser vide = puce Non affectée)</span>
+                      Location Node <span className="ml-1.5 normal-case font-normal text-slate-400">(optional)</span>
                     </label>
-                    <select
-                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer"
+                    <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer"
                       value={editingItem.data.assignedNodeId || ''}
-                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, assignedNodeId: e.target.value || undefined } })}
-                    >
+                      onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, assignedNodeId: e.target.value || undefined } })}>
                       <option value="">— Non affectée —</option>
-                      {subNodes.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} (office {s.officeNum})</option>
-                      ))}
+                      {subNodes.map(s => <option key={s.id} value={s.id}>{s.name} (office {s.officeNum})</option>)}
                     </select>
-                    {/* hint when currently vierge */}
                     {!editingItem.data.assignedNodeId && (
                       <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600 font-semibold">
-                        <AlertTriangle className="w-3 h-3 shrink-0" />
-                        Puce non affectée — choisissez un utilisateur pour l'affecter.
+                        <AlertTriangle className="w-3 h-3 shrink-0" />Puce non affectée — choisissez un utilisateur pour l'affecter.
                       </p>
                     )}
                   </div>
@@ -1686,8 +1589,7 @@ assignedNodeId: (puceNodeId || undefined) as string,
                     <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">État</label>
                       <select className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer" value={editingItem.data.status}
                         onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, status: e.target.value } })}>
-                        <option value="Active">Actif</option>
-                        <option value="Suspended">Suspendu</option>
+                        <option value="Active">Actif</option><option value="Suspended">Suspendu</option>
                       </select></div>
                   </div>
                   <div>
@@ -1696,11 +1598,7 @@ assignedNodeId: (puceNodeId || undefined) as string,
                       {(['TC', 'LX', 'PL'] as const).map((co) => (
                         <button key={co} type="button"
                           onClick={() => setEditingItem({ ...editingItem, data: { ...editingItem.data, contractCompany: co } })}
-                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
-                            (editingItem.data.contractCompany || 'TC') === co
-                              ? 'bg-slate-900 text-white shadow-xs'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
-                          }`}>
+                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${(editingItem.data.contractCompany || 'TC') === co ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'}`}>
                           {co}
                         </button>
                       ))}
@@ -1709,7 +1607,6 @@ assignedNodeId: (puceNodeId || undefined) as string,
                 </div>
               )}
 
-              {/* EDIT MATERIAL */}
               {editingItem.type === 'material' && (
                 <div className="space-y-3">
                   <div><label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Asset Model Name</label>
@@ -1758,11 +1655,7 @@ assignedNodeId: (puceNodeId || undefined) as string,
                       {(['Bon', 'Neuf'] as const).map((c) => (
                         <button key={c} type="button"
                           onClick={() => setEditingItem({ ...editingItem, data: { ...editingItem.data, condition: c } })}
-                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
-                            (editingItem.data.condition || 'Bon') === c
-                              ? 'bg-slate-900 text-white shadow-xs'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
-                          }`}>
+                          className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${(editingItem.data.condition || 'Bon') === c ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'}`}>
                           {c}
                         </button>
                       ))}

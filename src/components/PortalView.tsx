@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Department, Manager, SubNode, Material, Puce } from '../types';
 import { 
@@ -308,19 +308,32 @@ export default function PortalView({
   const [matCost, setMatCost] = useState('');
   const [matDate, setMatDate] = useState('');
   const [matNotes, setMatNotes] = useState('');
+const saveCatalogToServer = (
+  updatedCatalog: Record<string, CatalogItem>
+) => {
+  setCatalog(updatedCatalog);
 
+  fetch('/api/catalog', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updatedCatalog),
+  }).catch(() => {});
+};
   // ─── Dynamic Catalog Picker states ─────────────────────────────────────────
-  const [catalog, setCatalog] = useState<Record<string, CatalogItem>>(() => {
-    const saved = localStorage.getItem('tc_article_catalog');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse catalog from localStorage', e);
+  const [catalog, setCatalog] = useState<Record<string, CatalogItem>>(DEFAULT_CATALOG);
+
+useEffect(() => {
+  fetch('/api/catalog')
+    .then(res => res.json())
+    .then(data => {
+      if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+        setCatalog(data);
       }
-    }
-    return DEFAULT_CATALOG;
-  });
+    })
+    .catch(() => {});
+}, []);
 
   const [selectedCatalogType, setSelectedCatalogType] = useState<string>('');
   const [selectedCatalogBrand, setSelectedCatalogBrand] = useState<string>('');
@@ -454,10 +467,26 @@ export default function PortalView({
       matType,
       materials
     );
+const brand =
+  selectedCatalogBrand === '__NEW__'
+    ? newBrandName.trim()
+    : selectedCatalogBrand;
 
+const model =
+  selectedCatalogModel === '__NEW__'
+    ? newModelName.trim()
+    : selectedCatalogModel;
+
+const materialName = [
+  selectedCatalogType,
+  brand,
+  model,
+]
+  .filter(Boolean)
+  .join(' ');
     const newMaterial: Material = {
       id: `mat-${Date.now()}`,
-      name: matName,
+      name: materialName,
       type: matType,
       company: activeManager.company,
       deptNum: resolvedDeptNum,
@@ -527,9 +556,8 @@ export default function PortalView({
       }
 
       if (catalogChanged) {
-        setCatalog(updatedCatalog);
-        localStorage.setItem('tc_article_catalog', JSON.stringify(updatedCatalog));
-      }
+  saveCatalogToServer(updatedCatalog);
+}
     }
 
     onAddMaterial(newMaterial);

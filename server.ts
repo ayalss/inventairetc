@@ -123,7 +123,12 @@ async function checkAndInitializeDatabase() {
     isDbConnected = true;
     activeConnectionError = '';
     console.log(`[POSTGRES] Connected to "${dbConfig.database}" successfully.`);
-
+    await client.query(`
+  CREATE TABLE IF NOT EXISTS settings (
+    key   VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL
+  );
+`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         email         VARCHAR(150) PRIMARY KEY,
@@ -967,7 +972,38 @@ app.get('/api/puces', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// --- CATALOG ---
+app.get('/api/catalog', async (req, res) => {
+  try {
+    if (isDbConnected) {
+      const { rows } = await pool.query(`SELECT value FROM settings WHERE key = 'article_catalog'`);
+      if (rows.length > 0) return res.json(rows[0].value);
+    } else {
+      const saved = (memoryStore as any).catalog;
+      if (saved) return res.json(saved);
+    }
+    res.json(null); // null = use DEFAULT_CATALOG on frontend
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+app.post('/api/catalog', async (req, res) => {
+  const catalog = req.body;
+  try {
+    if (isDbConnected) {
+      await pool.query(`
+        INSERT INTO settings (key, value) VALUES ('article_catalog', $1)
+        ON CONFLICT (key) DO UPDATE SET value = $1
+      `, [JSON.stringify(catalog)]);
+    } else {
+      (memoryStore as any).catalog = catalog;
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.post('/api/puces', async (req, res) => {
   const { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, assignedNodeId, contractCompany } = req.body;
 
