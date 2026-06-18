@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Department, Manager, SubNode, Material, Puce } from '../types';
 import { 
@@ -292,6 +292,7 @@ export default function PortalView({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [editingPuce, setEditingPuce] = useState<Puce | null>(null);
+  const userEditedNotesRef = useRef(false);
 
   // ── Décharge state ──
   const [dechargePreviewMaterials, setDechargePreviewMaterials] = useState<Material[] | null>(null);
@@ -337,6 +338,47 @@ const saveCatalogToServer = (
     body: JSON.stringify(updatedCatalog),
   }).catch(() => {});
 };
+// ─── Auto-populate remarks for Desktop/Laptop ──────────────────────────────
+useEffect(() => {
+  const isDesktopOrLaptop = matType === 'Desktop' || matType === 'Laptop';
+  const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
+  
+  if (isDesktopOrLaptop) {
+    if (!userEditedNotesRef.current) {
+      const currentNotes = matNotes.trim();
+      if (!currentNotes || currentNotes === template.trim() || currentNotes === 'Processeur: \nRAM: \nGPU: \nStockage:') {
+        setMatNotes(template);
+        userEditedNotesRef.current = false;
+      }
+    }
+  } else {
+    if (matNotes.trim() === template.trim() || matNotes.trim() === 'Processeur: \nRAM: \nGPU: \nStockage:') {
+      setMatNotes('');
+      userEditedNotesRef.current = false;
+    }
+  }
+}, [matType]);
+
+// Also run on initial mount
+useEffect(() => {
+  const isDesktopOrLaptop = matType === 'Desktop' || matType === 'Laptop';
+  const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
+  
+  if (isDesktopOrLaptop && !matNotes.trim()) {
+    setMatNotes(template);
+  }
+}, []);
+const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const value = e.target.value;
+  setMatNotes(value);
+  
+  const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
+  if (value.trim() !== template.trim() && value.trim() !== 'Processeur: \nRAM: \nGPU: \nStockage:') {
+    userEditedNotesRef.current = true;
+  } else {
+    userEditedNotesRef.current = false;
+  }
+};
   // ─── Dynamic Catalog Picker states ─────────────────────────────────────────
   const [catalog, setCatalog] = useState<Record<string, CatalogItem>>(DEFAULT_CATALOG);
 
@@ -376,15 +418,43 @@ useEffect(() => {
 
   const availableModels = useMemo(() => {
     if (!selectedCatalogType || !selectedCatalogBrand || !catalog[selectedCatalogType]) return [];
+    if (selectedCatalogBrand === '__NEW__') return [];
     const brandObj = catalog[selectedCatalogType].brands.find(b => b.name === selectedCatalogBrand);
     return brandObj ? brandObj.models : [];
   }, [selectedCatalogType, selectedCatalogBrand, catalog]);
 
   React.useEffect(() => {
-    if (!selectedCatalogType) return;
-    
-    const nameParts = [selectedCatalogType];
+  if (!selectedCatalogType) return;
+  
+  const nameParts = [selectedCatalogType];
 
+  let brand = '';
+  if (selectedCatalogBrand === '__NEW__') {
+    brand = newBrandName.trim();
+  } else if (selectedCatalogBrand) {
+    brand = selectedCatalogBrand;
+  }
+  if (brand) nameParts.push(brand);
+
+  let model = '';
+  if (selectedCatalogModel === '__NEW__') {
+    model = newModelName.trim();
+  } else if (selectedCatalogModel) {
+    model = selectedCatalogModel;
+  }
+  if (model) nameParts.push(model);
+
+  const newName = nameParts.join(' ');
+  if (newName !== matName) {
+    setMatName(newName);
+  }
+}, [selectedCatalogType, selectedCatalogBrand, newBrandName, selectedCatalogModel, newModelName]);
+// ─── Special handler for new model name ───
+useEffect(() => {
+  // Only run when we're adding a new model and have a model name
+  if (selectedCatalogModel === '__NEW__' && newModelName.trim() && selectedCatalogType) {
+    const nameParts = [selectedCatalogType];
+    
     let brand = '';
     if (selectedCatalogBrand === '__NEW__') {
       brand = newBrandName.trim();
@@ -392,18 +462,14 @@ useEffect(() => {
       brand = selectedCatalogBrand;
     }
     if (brand) nameParts.push(brand);
-
-    let model = '';
-    if (selectedCatalogModel === '__NEW__') {
-      model = newModelName.trim();
-    } else if (selectedCatalogModel) {
-      model = selectedCatalogModel;
+    
+    nameParts.push(newModelName.trim());
+    const newName = nameParts.join(' ');
+    if (newName !== matName) {
+      setMatName(newName);
     }
-    if (model) nameParts.push(model);
-
-    setMatName(nameParts.join(' '));
-  }, [selectedCatalogType, selectedCatalogBrand, newBrandName, selectedCatalogModel, newModelName]);
-
+  }
+}, [newModelName]); // Only depend on newModelName
   const [puceSerial,   setPuceSerial]   = useState('');
   const [pucePhone,    setPucePhone]    = useState('');
   const [pucePuk,      setPucePuk]      = useState('');
@@ -594,6 +660,7 @@ const materialName = [
     setSelectedCatalogModel('');
     setNewBrandName('');
     setNewModelName('');
+    userEditedNotesRef.current = false;
   };
 
   const handleAddPuceSubmit = (e: React.FormEvent) => {
@@ -1445,26 +1512,29 @@ const materialName = [
                         </div>
 
                         {/* Model / Modèle */}
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Modèle</label>
-                          <select 
-                            className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer disabled:opacity-50"
-                            disabled={!selectedCatalogBrand || selectedCatalogBrand === '__NEW__'}
-                            value={selectedCatalogModel} 
-                            onChange={(e) => {
-                              setSelectedCatalogModel(e.target.value);
-                              setNewModelName('');
-                            }}
-                          >
-                            <option value="">— Select Model —</option>
-                            {availableModels.map((m) => (
-                              <option key={m} value={m}>{m}</option>
-                            ))}
-                            {selectedCatalogBrand && selectedCatalogBrand !== '__NEW__' && (
-                              <option value="__NEW__" className="text-[#FF1E1E] font-bold">+ Ajouter un modèle...</option>
-                            )}
-                          </select>
-                        </div>
+                        {/* Model / Modèle */}
+<div>
+  <label className="text-[9px] font-bold text-slate-500 block uppercase tracking-wider mb-1">Modèle</label>
+  <select 
+    className="w-full text-xs px-2.5 py-2 bg-white border border-[#D2D2D7]/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] cursor-pointer disabled:opacity-50"
+    disabled={!selectedCatalogBrand} // ← REMOVED the '__NEW__' check
+    value={selectedCatalogModel} 
+    onChange={(e) => {
+      setSelectedCatalogModel(e.target.value);
+      setNewModelName('');
+    }}
+  >
+    <option value="">— Select Model —</option>
+    {selectedCatalogBrand && selectedCatalogBrand !== '__NEW__' && // ← ADD this condition
+      availableModels.map((m) => (
+        <option key={m} value={m}>{m}</option>
+      ))
+    }
+    {selectedCatalogBrand && ( // ← REMOVED the '__NEW__' check
+      <option value="__NEW__" className="text-[#FF1E1E] font-bold">+ Ajouter un modèle...</option>
+    )}
+  </select>
+</div>
                       </div>
 
                       {/* Custom Brand Input */}
@@ -1587,8 +1657,8 @@ const materialName = [
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">{t('device_integration_remarks')}</label>
                       <textarea rows={2} placeholder={t('device_integration_remarks_placeholder')}
-                        className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none text-slate-700"
-                        value={matNotes} onChange={(e) => setMatNotes(e.target.value)} />
+  className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none text-slate-700"
+  value={matNotes} onChange={handleNotesChange} />
                     </div>
 
                     <div className="p-3 bg-rose-50/50 border border-rose-100 rounded-xl">

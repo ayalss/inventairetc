@@ -224,6 +224,8 @@ export default function ManagementTab({
   const [docsModalNode, setDocsModalNode] = useState<SubNodeWithDocs | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inlineFileInputRef = useRef<HTMLInputElement>(null);
+  const userEditedNotesRef = useRef(false);
+  
 
   // Décharge multi-select
   const [dechargeSelectedIds, setDechargeSelectedIds] = useState<string[]>([]);
@@ -289,6 +291,7 @@ export default function ManagementTab({
       })
       .catch(() => {}); // silently fall back to DEFAULT_CATALOG
   }, []);
+  
 
   const [selectedCatalogType, setSelectedCatalogType] = useState<string>('');
   const [selectedCatalogBrand, setSelectedCatalogBrand] = useState<string>('');
@@ -341,6 +344,42 @@ export default function ManagementTab({
       body: JSON.stringify(updatedCatalog),
     }).catch(() => {}); // fire-and-forget
   };
+  // ─── Auto-populate remarks for Desktop/Laptop ──────────────────────────────
+useEffect(() => {
+  const isDesktopOrLaptop = matType === 'Desktop' || matType === 'Laptop';
+  const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
+  
+  if (isDesktopOrLaptop) {
+    // If the user hasn't manually edited, or the notes are empty/only template
+    if (!userEditedNotesRef.current) {
+      const currentNotes = matNotes.trim();
+      // If empty or just the template, set it
+      if (!currentNotes || currentNotes === template.trim() || currentNotes === 'Processeur: \nRAM: \nGPU: \nStockage:') {
+        setMatNotes(template);
+        userEditedNotesRef.current = false; // Allow auto-populate again
+      }
+    }
+  } else {
+    // If switching away from Desktop/Laptop and notes is just the template, clear it
+    if (matNotes.trim() === template.trim() || matNotes.trim() === 'Processeur: \nRAM: \nGPU: \nStockage:') {
+      setMatNotes('');
+      userEditedNotesRef.current = false;
+    }
+  }
+}, [matType]); // This will run every time matType changes
+const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const value = e.target.value;
+  setMatNotes(value);
+  
+  const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
+  // If user types something different from the template, mark as manually edited
+  if (value.trim() !== template.trim() && value.trim() !== 'Processeur: \nRAM: \nGPU: \nStockage:') {
+    userEditedNotesRef.current = true;
+  } else {
+    // If user clears back to template, allow auto-populate again
+    userEditedNotesRef.current = false;
+  }
+};
 
   // ─── Puce form state ───────────────────────────────────────────────────────
   const [puceSerial,   setPuceSerial]   = useState('');
@@ -496,6 +535,7 @@ export default function ManagementTab({
     setSelectedCatalogModel('');
     setNewBrandName('');
     setNewModelName('');
+    userEditedNotesRef.current = false;
   };
 
   const handlePuceSubmit = (e: React.FormEvent) => {
@@ -885,9 +925,9 @@ export default function ManagementTab({
                       value={matDate} onChange={(e) => setMatDate(e.target.value)} />
                   </div>
                   <div>
-                    <textarea rows={3} placeholder="e.g. Processeur: AMD RYZEN 7 8845HS @5.1GHz&#10;RAM: 16Gb DDR5&#10;Disque: 1Tb SSD"
-                      className="w-full text-xs px-3.5 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
-                      value={matNotes} onChange={(e) => setMatNotes(e.target.value)} />
+                    <textarea rows={3} placeholder="e.g. Processeur: AMD RYZEN 7 8845HS @5.1GHz&#10;RAM: 16Gb DDR5&#10;GPU: ...&#10;Stockage: 1Tb SSD"
+  className="w-full text-xs px-3.5 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E]"
+  value={matNotes} onChange={handleNotesChange} />
                   </div>
                   <button type="submit"
                     className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-99 transition-all text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2">

@@ -34,7 +34,9 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
 
   const filteredMaterials = useMemo(() => {
     setCurrentPage(1); // reset page on any filter change
-    return materials.filter(m => {
+    
+    // First filter the materials
+    const filtered = materials.filter(m => {
       const matchCompany = selectedCompany === 'ALL' || m.company === selectedCompany;
       const deptObj = departments.find(d => d.id === selectedDept);
       const matchDept = selectedDept === 'ALL' || (deptObj && m.deptNum === deptObj.deptNum);
@@ -45,6 +47,26 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
       const text = `${m.name} ${m.codification} ${m.serialNumber} ${subNode?.name ?? ''} ${deptName}`.toLowerCase();
       const matchSearch = text.includes(searchTerm.toLowerCase());
       return matchCompany && matchDept && matchType && matchStatus && matchSearch;
+    });
+
+    // Then sort by department first, then by name/codification
+    return filtered.sort((a, b) => {
+      // Get department names for comparison
+      const deptA = departments.find(d => d.deptNum === a.deptNum)?.name ?? '';
+      const deptB = departments.find(d => d.deptNum === b.deptNum)?.name ?? '';
+      
+      // First sort by department name
+      if (deptA !== deptB) {
+        return deptA.localeCompare(deptB);
+      }
+      
+      // If same department, sort by name
+      if (a.name !== b.name) {
+        return a.name.localeCompare(b.name);
+      }
+      
+      // If same name, sort by codification
+      return a.codification.localeCompare(b.codification);
     });
   }, [materials, departments, subNodes, selectedCompany, selectedDept, selectedType, selectedStatus, searchTerm]);
 
@@ -74,7 +96,15 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
     setExportingCSV(true);
     setTimeout(() => {
       try {
-        const data = filteredMaterials.map(m => {
+        // Sort data by department for CSV export as well
+        const sortedData = [...filteredMaterials].sort((a, b) => {
+          const deptA = departments.find(d => d.deptNum === a.deptNum)?.name ?? '';
+          const deptB = departments.find(d => d.deptNum === b.deptNum)?.name ?? '';
+          if (deptA !== deptB) return deptA.localeCompare(deptB);
+          return a.name.localeCompare(b.name);
+        });
+
+        const data = sortedData.map(m => {
           const deptName = departments.find(d => d.deptNum === m.deptNum)?.name ?? '—';
           const subNodeName = subNodes.find(s => s.id === m.assignedNodeId)?.name ?? '—';
           return {
@@ -116,18 +146,17 @@ export default function ReportsTab({ materials, departments }: ReportsTabProps) 
             position: absolute; left: 0; top: 0; width: 100%; background: white;
           }
           table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 8px;
-}
-
-th,
-td {
-  border: 1px solid #ccc;
-  padding: 3px 4px;
-  line-height: 1.2;
-}
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 8px;
+          }
+          th,
+          td {
+            border: 1px solid #ccc;
+            padding: 3px 4px;
+            line-height: 1.2;
+          }
           thead { display: table-header-group; }
           tr { page-break-inside: avoid; }
           .no-print { display: none !important; }
@@ -190,6 +219,11 @@ td {
         </tr>
       );
     });
+
+  // Add a helper to get department names for the grouped display
+  const getDepartmentGroup = (deptNum: string) => {
+    return departments.find(d => d.deptNum === deptNum)?.name ?? 'Unknown Department';
+  };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-1">
