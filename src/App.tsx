@@ -24,6 +24,7 @@ import PuceReportsTab from './components/PuceReportsTab';
 import ManagementTab from './components/ManagementTab';
 import LoginPage from './components/LoginPage.tsx';
 import UserManagementTab from './components/UserManagementTab';
+import InventoryChatbot from './components/InventoryChatbot';
 import { RefreshCw, HelpCircle, UserCheck, ShieldAlert, Heart, Calendar, LogOut } from 'lucide-react';
 
 export default function App() {
@@ -642,6 +643,16 @@ export default function App() {
             <UserManagementTab adminEmail={authenticatedUserEmail} />
           )}
         </main>
+
+        <InventoryChatbot
+          departments={departments}
+          managers={managers}
+          subNodes={subNodes}
+          materials={materials}
+          puces={puces}
+          dbStatus={dbStatus}
+          onRefresh={syncDatabaseState}
+        />
       </div>
 
       {/* RESET CONFIRMATION MODAL */}

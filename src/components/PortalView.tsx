@@ -4,7 +4,7 @@ import { Department, Manager, SubNode, Material, Puce } from '../types';
 import { 
   MapPin, Layers, Server, Laptop, Plus, HelpCircle, UserCheck, 
   ChevronRight, User, X, Check, Mail, Info, Settings, ShieldAlert,
-  FileText, Edit, Trash2, ClipboardCheck, Printer, Smartphone
+  FileText, Edit, Trash2, ClipboardCheck, Printer, Smartphone, History, Activity, ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MaterialQrCard from './MaterialQrCard';
@@ -20,6 +20,16 @@ interface CatalogItem {
   label: string;
   deviceCategory: 'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Access Point' | 'Other';
   brands: CatalogBrand[];
+}
+
+interface MaterialHistoryEntry {
+  id: number | string;
+  materialId: string;
+  action: string;
+  field: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: string;
 }
 
 const DEFAULT_CATALOG: Record<string, CatalogItem> = {
@@ -288,6 +298,10 @@ export default function PortalView({
   }, [puces, activeSubNode, activeManager, activeSubNodes]);
 
   const [modalMaterial, setModalMaterial] = useState<Material | null>(null);
+  const [timelineMaterial, setTimelineMaterial] = useState<Material | null>(null);
+  const [materialHistory, setMaterialHistory] = useState<MaterialHistoryEntry[]>([]);
+  const [materialHistoryLoading, setMaterialHistoryLoading] = useState(false);
+  const [materialHistoryError, setMaterialHistoryError] = useState<string | null>(null);
   const [activeCreationType, setActiveCreationType] = useState<'manager' | 'subnode' | 'material' | 'puce' | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
@@ -304,6 +318,43 @@ export default function PortalView({
       if (onClearSelectedAssetScanner) onClearSelectedAssetScanner();
     }
   }, [selectedAssetFromScanner, onClearSelectedAssetScanner]);
+
+  useEffect(() => {
+    if (!timelineMaterial) {
+      setMaterialHistory([]);
+      setMaterialHistoryError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setMaterialHistoryLoading(true);
+    setMaterialHistoryError(null);
+
+    fetch(`/api/materials/${encodeURIComponent(timelineMaterial.id)}/history`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error(text || `History request failed (${res.status})`);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled) setMaterialHistory(Array.isArray(data.history) ? data.history : []);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to load material history:', err);
+          setMaterialHistoryError('Unable to load audit history for this asset.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setMaterialHistoryLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [timelineMaterial]);
 
   // ── Form States ──
   const [mngName, setMngName] = useState('');
@@ -798,6 +849,69 @@ const materialName = [
       );
     };
 
+  const getStatusClass = (status?: string | null) => {
+    switch (status) {
+      case 'Active':
+        return 'bg-[#34C759]/10 text-[#34C759] border-[#34C759]/20';
+      case 'Under Repair':
+        return 'bg-[#FF9500]/10 text-[#FF9500] border-[#FF9500]/20';
+      case 'In Storage':
+        return 'bg-[#FF1E1E]/10 text-[#FF1E1E] border-[#FF1E1E]/20';
+      case 'Retired':
+        return 'bg-slate-200 text-slate-700 border-slate-300';
+      default:
+        return 'bg-slate-100 text-slate-600 border-slate-200';
+    }
+  };
+
+  const formatHistoryDate = (value?: string | null) => {
+    if (!value) return 'Unknown time';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getHistoryTitle = (entry: MaterialHistoryEntry) => {
+    if (entry.action === 'MATERIAL_CREATED') return 'Asset registered';
+    if (entry.action === 'STATUS_CHANGED') return 'Lifecycle status changed';
+    if (entry.field === 'assignedNodeId') return 'Assignment changed';
+    if (entry.field === 'condition') return 'Condition changed';
+    return 'Asset detail changed';
+  };
+
+  const getNodeLabel = (nodeId?: string | null) => {
+    if (!nodeId) return 'Unassigned';
+    const node = subNodes.find(n => n.id === nodeId) || activeSubNodes.find(n => n.id === nodeId);
+    if (!node) return nodeId;
+    return node.officeNum ? `${node.name} (${node.officeNum})` : node.name;
+  };
+
+  const getHistoryValueLabel = (entry: MaterialHistoryEntry, value?: string | null) => {
+    if (entry.field === 'assignedNodeId') return getNodeLabel(value);
+    return value || 'Empty';
+  };
+
+  const timelineEntries = useMemo(() => {
+    if (!timelineMaterial) return [];
+    if (materialHistory.length > 0) return materialHistory;
+
+    return [{
+      id: 'current-status',
+      materialId: timelineMaterial.id,
+      action: 'CURRENT_STATUS',
+      field: 'status',
+      oldValue: null,
+      newValue: timelineMaterial.status,
+      createdAt: timelineMaterial.purchaseDate || '',
+    }];
+  }, [materialHistory, timelineMaterial]);
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-1 relative">
       {toastMessage && (
@@ -1116,7 +1230,16 @@ const materialName = [
                       return (
                         <div
                           key={material.id}
-                          className="p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-5 hover:bg-[#F5F5F7]/50 transition-colors"
+                          onClick={() => setTimelineMaterial(material)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setTimelineMaterial(material);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          className="p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-5 hover:bg-[#F5F5F7]/50 transition-colors cursor-pointer focus:outline-none focus:bg-[#F5F5F7]"
                         >
                           {/* Left: asset metadata */}
                           <div className="space-y-1.5 min-w-0 flex-1">
@@ -1170,14 +1293,18 @@ const materialName = [
                           {/* Right: action buttons */}
                           <div className="flex items-center gap-1.5 shrink-0 self-start">
                             <button
-                              onClick={() => setEditingMaterial({ ...material })}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingMaterial({ ...material });
+                              }}
                               className="p-1.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-[#D2D2D7] rounded-lg transition-all cursor-pointer"
                               title={t('edit_asset')}
                             >
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 if (confirm(`${t('delete_asset_confirm')} "${material.codification} — ${material.name}"?`)) {
                                   onDeleteMaterial(material.id);
                                   triggerToast(`${t('asset_removed')} "${material.codification}".`);
@@ -1190,14 +1317,20 @@ const materialName = [
                             </button>
                             {/* ── Décharge button ── */}
                             <button
-                              onClick={() => setDechargePreviewMaterials([material])}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDechargePreviewMaterials([material]);
+                              }}
                               className="p-1.5 bg-white text-slate-500 hover:text-[#FF1E1E] hover:bg-red-50 border border-[#D2D2D7] rounded-lg transition-all cursor-pointer"
                               title="Bon de Décharge"
                             >
                               <ClipboardCheck className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => setModalMaterial(material)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setModalMaterial(material);
+                              }}
                               className="py-1.5 px-3 bg-white text-[#FF1E1E] border border-[#FF1E1E]/30 hover:bg-[#FF1E1E] hover:text-white text-[11px] font-semibold tracking-wide rounded-lg transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                               <Server className="w-3.5 h-3.5" />
@@ -2024,6 +2157,118 @@ const materialName = [
       </AnimatePresence>
 
       {/* ════════ QR MODAL ════════ */}
+      <AnimatePresence>
+        {timelineMaterial && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setTimelineMaterial(null)}
+              className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm"
+            />
+            <div className="flex min-h-screen items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 14 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 14 }}
+                className="relative bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden"
+              >
+                <div className="px-6 py-5 bg-slate-950 text-white flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#FF1E1E]">
+                      <History className="w-4 h-4" />
+                      Time Machine Audit
+                    </div>
+                    <h3 className="mt-2 text-lg font-black tracking-tight truncate">{timelineMaterial.name}</h3>
+                    <p className="text-[11px] text-slate-300 font-mono mt-1">{timelineMaterial.codification}</p>
+                  </div>
+                  <button
+                    onClick={() => setTimelineMaterial(null)}
+                    className="p-2 hover:bg-white/10 rounded-xl text-slate-300 hover:text-white transition-all cursor-pointer shrink-0"
+                    title="Close"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="px-6 py-4 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">Current Status</span>
+                    <span className={`inline-flex mt-1 px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${getStatusClass(timelineMaterial.status)}`}>
+                      {timelineMaterial.status}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">Serial Number</span>
+                    <span className="block mt-1 text-xs font-mono font-bold text-slate-800 truncate">{timelineMaterial.serialNumber}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">Condition</span>
+                    <span className="block mt-1 text-xs font-bold text-slate-800">{timelineMaterial.condition || 'Bon'}</span>
+                  </div>
+                </div>
+
+                <div className="p-6 max-h-[58vh] overflow-y-auto">
+                  {materialHistoryLoading ? (
+                    <div className="py-12 text-center">
+                      <Activity className="w-7 h-7 mx-auto text-[#FF1E1E] animate-pulse" />
+                      <p className="mt-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Loading audit trail...</p>
+                    </div>
+                  ) : materialHistoryError ? (
+                    <div className="py-10 text-center text-xs font-semibold text-rose-600">
+                      {materialHistoryError}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="absolute left-3 top-2 bottom-2 w-px bg-slate-200" />
+                      <div className="space-y-4">
+                        {timelineEntries.map((entry, index) => (
+                          <div key={entry.id} className="relative pl-9">
+                            <div className={`absolute left-0 top-1 w-6 h-6 rounded-full border-4 border-white shadow-sm ${
+                              entry.field === 'status' ? 'bg-[#FF1E1E]' : 'bg-slate-400'
+                            }`} />
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <h4 className="text-xs font-black text-slate-950 uppercase tracking-wider">{getHistoryTitle(entry)}</h4>
+                                  <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                                    {formatHistoryDate(entry.createdAt)}
+                                  </p>
+                                </div>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                  {entry.field || 'audit'}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold">
+                                {entry.oldValue ? (
+                                  <>
+                                    <span className={`px-2.5 py-1 rounded-full border ${entry.field === 'status' ? getStatusClass(entry.oldValue) : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                                      {getHistoryValueLabel(entry, entry.oldValue)}
+                                    </span>
+                                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                                  </>
+                                ) : (
+                                  <span className="px-2.5 py-1 rounded-full border bg-slate-50 text-slate-400 border-slate-200">New record</span>
+                                )}
+                                <span className={`px-2.5 py-1 rounded-full border ${entry.field === 'status' ? getStatusClass(entry.newValue) : 'bg-slate-900 text-white border-slate-900'}`}>
+                                  {getHistoryValueLabel(entry, entry.newValue)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {modalMaterial && (
           <div className="fixed inset-0 z-50 overflow-y-auto">

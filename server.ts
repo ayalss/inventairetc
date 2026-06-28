@@ -50,6 +50,7 @@ const memoryStore = {
   materials:   [...INITIAL_MATERIALS]   as any[],
   puces:        [] as any[],
   auditLogs:    [] as any[],
+  materialHistory: [] as any[],
   users: [] as any[],
   // ─── ADD THIS ──────────────────────────────────────────────
   catalog: {
@@ -256,6 +257,41 @@ async function logAudit(
   }
 }
 
+async function logMaterialHistory(
+  materialId: string,
+  action: string,
+  field: string | null,
+  oldValue: unknown,
+  newValue: unknown
+) {
+  const oldText = oldValue === undefined || oldValue === null ? null : String(oldValue);
+  const newText = newValue === undefined || newValue === null ? null : String(newValue);
+  const entry = {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    material_id: materialId,
+    action,
+    field,
+    old_value: oldText,
+    new_value: newText,
+    created_at: new Date().toISOString(),
+  };
+
+  try {
+    if (isDbConnected) {
+      await pool.query(
+        `INSERT INTO material_history (material_id, action, field, old_value, new_value)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [materialId, action, field, oldText, newText]
+      );
+    } else {
+      memoryStore.materialHistory.unshift(entry);
+      if (memoryStore.materialHistory.length > 1000) memoryStore.materialHistory.pop();
+    }
+  } catch (err: any) {
+    console.error('[MATERIAL_HISTORY] Failed to write log:', err.message);
+  }
+}
+
 function getClientIp(req: express.Request): string {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) return String(forwarded).split(',')[0].trim();
@@ -350,11 +386,25 @@ async function checkAndInitializeDatabase() {
         user_agent  TEXT,
         created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS material_history (
+        id          SERIAL       PRIMARY KEY,
+        material_id VARCHAR(50)  NOT NULL,
+        action      VARCHAR(100) NOT NULL,
+        field       VARCHAR(100),
+        old_value   TEXT,
+        new_value   TEXT,
+        created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // ── Migrations ──
     await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS condition VARCHAR(20) NOT NULL DEFAULT 'Bon';`);
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE;`);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_material_history_material_id_created_at
+      ON material_history (material_id, created_at DESC);
+    `);
 
     // ── NEW: permissions column migration ──
     await client.query(`
@@ -1040,6 +1090,13 @@ app.post('/api/materials', async (req, res) => {
           return res.status(400).json({ error: `Sub-node "${assignedNodeId}" does not exist in the database.` });
         }
       }
+      const existingResult = await pool.query(
+        `SELECT id, name, status, condition, serial_number AS "serialNumber",
+                assigned_node_id AS "assignedNodeId"
+         FROM materials WHERE id = $1`,
+        [id]
+      );
+      const existingMaterial = existingResult.rows[0];
       const { rows } = await pool.query(
         `INSERT INTO materials (
            id, name, type, company, dept_num, office_num, material_num,
@@ -1068,9 +1125,29 @@ app.post('/api/materials', async (req, res) => {
           assignedNodeId || null
         ]
       );
+      if (!existingMaterial) {
+        await logMaterialHistory(id, 'MATERIAL_CREATED', 'status', null, status);
+      } else {
+        const trackedChanges = [
+          ['status', existingMaterial.status, status],
+          ['condition', existingMaterial.condition, condition || 'Bon'],
+          ['assignedNodeId', existingMaterial.assignedNodeId, assignedNodeId || null],
+          ['name', existingMaterial.name, name],
+          ['serialNumber', existingMaterial.serialNumber, serialNumber || null],
+        ] as const;
+
+        for (const [field, oldValue, newValue] of trackedChanges) {
+          const oldText = oldValue === undefined || oldValue === null ? '' : String(oldValue);
+          const newText = newValue === undefined || newValue === null ? '' : String(newValue);
+          if (oldText !== newText) {
+            await logMaterialHistory(id, field === 'status' ? 'STATUS_CHANGED' : 'MATERIAL_UPDATED', field, oldValue, newValue);
+          }
+        }
+      }
       res.json(rows[0]);
     } else {
       const idx = memoryStore.materials.findIndex(m => m.id === id);
+      const existingMaterial = idx > -1 ? memoryStore.materials[idx] : null;
       const payload = {
         id, name, type, company, deptNum, officeNum, materialNum,
         codification, status, serialNumber, purchaseDate, cost, notes,
@@ -1079,10 +1156,69 @@ app.post('/api/materials', async (req, res) => {
       };
       if (idx > -1) memoryStore.materials[idx] = payload;
       else memoryStore.materials.push(payload);
+      if (!existingMaterial) {
+        await logMaterialHistory(id, 'MATERIAL_CREATED', 'status', null, status);
+      } else {
+        const trackedChanges = [
+          ['status', existingMaterial.status, status],
+          ['condition', existingMaterial.condition, condition || 'Bon'],
+          ['assignedNodeId', existingMaterial.assignedNodeId, assignedNodeId || null],
+          ['name', existingMaterial.name, name],
+          ['serialNumber', existingMaterial.serialNumber, serialNumber || null],
+        ] as const;
+
+        for (const [field, oldValue, newValue] of trackedChanges) {
+          const oldText = oldValue === undefined || oldValue === null ? '' : String(oldValue);
+          const newText = newValue === undefined || newValue === null ? '' : String(newValue);
+          if (oldText !== newText) {
+            await logMaterialHistory(id, field === 'status' ? 'STATUS_CHANGED' : 'MATERIAL_UPDATED', field, oldValue, newValue);
+          }
+        }
+      }
       res.json(payload);
     }
   } catch (err: any) {
     console.error('❌ MATERIAL INSERT ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/materials/:id/history', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (isDbConnected) {
+      const { rows } = await pool.query(
+        `SELECT id,
+                material_id AS "materialId",
+                action,
+                field,
+                old_value AS "oldValue",
+                new_value AS "newValue",
+                created_at AS "createdAt"
+         FROM material_history
+         WHERE material_id = $1
+         ORDER BY created_at DESC, id DESC
+         LIMIT 100`,
+        [id]
+      );
+      res.json({ history: rows });
+    } else {
+      const history = memoryStore.materialHistory
+        .filter(h => h.material_id === id)
+        .slice(0, 100)
+        .map(h => ({
+          id: h.id,
+          materialId: h.material_id,
+          action: h.action,
+          field: h.field,
+          oldValue: h.old_value,
+          newValue: h.new_value,
+          createdAt: h.created_at,
+        }));
+      res.json({ history });
+    }
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });

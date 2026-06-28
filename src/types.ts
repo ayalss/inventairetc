@@ -38,6 +38,7 @@ export interface SubNode {
 }
 
 export interface Manager {
+  employeeCount: number;
   id: string;
   name: string;
   email: string;

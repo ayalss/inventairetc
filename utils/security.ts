@@ -1,9 +1,4 @@
-/**
- * LUXESTILE Cryptographic Security Utilities
- * Protects hardware ERP codifications, ensuring that scan events by external applications
- * display a luxury warning and obfuscated security tokens, while authorized sessions
- * inside our app resolve assets perfectly.
- */
+
 
 const SECURITY_PREFIX = 'LUXESTILE-SECURE-ERP://[CLASS-A]::';
 
