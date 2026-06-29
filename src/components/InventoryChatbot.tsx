@@ -450,7 +450,7 @@ export default function InventoryChatbot({
               </div>
               <div className="min-w-0">
                 <h3 className="text-xs font-black uppercase tracking-wider">Assistant Inventaire</h3>
-                <p className="text-[10px] text-slate-300 truncate">données réelles · zéro hallucination</p>
+                <p className="text-[10px] text-slate-300 truncate">données réelles</p>
               </div>
             </div>
             <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10 cursor-pointer">
