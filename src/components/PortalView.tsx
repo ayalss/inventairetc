@@ -548,7 +548,8 @@ useEffect(() => {
       avatarColor: randomColor,
       officeNum: String(managers.filter(m => m.company === mngCompany).length + 1),
       company: mngCompany,
-      departmentId: selectedDept.id
+      departmentId: selectedDept.id,
+      employeeCount: 0
     };
 
     onAddManager(newMng);

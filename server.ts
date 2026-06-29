@@ -425,7 +425,6 @@ async function checkAndInitializeDatabase() {
       );
       console.log('[POSTGRES] Admin user seeded.');
     }
-
     // Seed initial data only if departments table is empty
     const deptCount = await client.query('SELECT COUNT(*) FROM departments');
     if (parseInt(deptCount.rows[0].count) === 0) {

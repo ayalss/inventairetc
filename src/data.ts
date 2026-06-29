@@ -10,6 +10,8 @@ export const INITIAL_DEPARTMENTS: Department[] = [
 
 export const INITIAL_MANAGERS: Manager[] = [
   // IT Managers (Dept 10)
+
+  // IT Managers (Dept 10)
   {
     id: 'mng-alex',
     name: 'Alexander Wright',
@@ -18,7 +20,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-indigo-500',
     officeNum: '101',
     company: 'TC',
-    departmentId: 'dept-it'
+    departmentId: 'dept-it',
+    employeeCount: 3
   },
   {
     id: 'mng-helena',
@@ -28,7 +31,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-emerald-500',
     officeNum: '201',
     company: 'LX',
-    departmentId: 'dept-it'
+    departmentId: 'dept-it',
+    employeeCount: 2
   },
   {
     id: 'mng-david',
@@ -38,7 +42,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-red-500',
     officeNum: '301',
     company: 'PL',
-    departmentId: 'dept-it'
+    departmentId: 'dept-it',
+    employeeCount: 2
   },
 
   // Finance Managers (Dept 20)
@@ -50,7 +55,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-pink-500',
     officeNum: '105',
     company: 'TC',
-    departmentId: 'dept-finance'
+    departmentId: 'dept-finance',
+    employeeCount: 2
   },
   {
     id: 'mng-julian',
@@ -60,7 +66,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-purple-500',
     officeNum: '205',
     company: 'LX',
-    departmentId: 'dept-finance'
+    departmentId: 'dept-finance',
+    employeeCount: 1
   },
 
   // HR Managers (Dept 30)
@@ -72,7 +79,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-teal-500',
     officeNum: '108',
     company: 'TC',
-    departmentId: 'dept-hr'
+    departmentId: 'dept-hr',
+    employeeCount: 0
   },
   {
     id: 'mng-marcus',
@@ -82,7 +90,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-cyan-500',
     officeNum: '308',
     company: 'PL',
-    departmentId: 'dept-hr'
+    departmentId: 'dept-hr',
+    employeeCount: 0
   },
 
   // R&D Managers (Dept 40)
@@ -94,7 +103,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-rose-500',
     officeNum: '211',
     company: 'LX',
-    departmentId: 'dept-engineering'
+    departmentId: 'dept-engineering',
+    employeeCount: 2
   },
   {
     id: 'mng-ada',
@@ -104,7 +114,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-blue-600',
     officeNum: '315',
     company: 'PL',
-    departmentId: 'dept-engineering'
+    departmentId: 'dept-engineering',
+    employeeCount: 0
   },
 
   // Logistics Managers (Dept 50)
@@ -116,7 +127,8 @@ export const INITIAL_MANAGERS: Manager[] = [
     avatarColor: 'bg-orange-500',
     officeNum: '112',
     company: 'TC',
-    departmentId: 'dept-logistics'
+    departmentId: 'dept-logistics',
+    employeeCount: 0
   }
 ];
 
