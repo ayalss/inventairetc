@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Department, Manager, SubNode, Material, Puce } from '../types';
 import { 
   MapPin, Layers, Server, Laptop, Plus, HelpCircle, UserCheck, 
-  ChevronRight, User, X, Check, Mail, Info, Settings, ShieldAlert,
+  ChevronRight, ChevronLeft, User, X, Check, Mail, Info, Settings, ShieldAlert,
   FileText, Edit, Trash2, ClipboardCheck, Printer, Smartphone, History, Activity, ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -153,7 +153,6 @@ const DEFAULT_CATALOG: Record<string, CatalogItem> = {
       { name: 'Adata', models: ['UV128 32GB'] }
     ]
   },
-  // ─── NEW: Access Point WiFi ──────────────────────────────────────────────
   'access point': {
     label: 'Access Point WiFi',
     deviceCategory: 'Access Point',
@@ -285,6 +284,7 @@ export default function PortalView({
     return materials.filter(m => m.assignedNodeId === activeSubNode.id);
   }, [materials, activeSubNode, activeManager, activeSubNodes]);
 
+  // ─── FIXED: Proper useMemo for nodePuces ────────────────────────────
   const nodePuces = useMemo(() => {
     if (!activeSubNode) return [];
 
@@ -308,9 +308,30 @@ export default function PortalView({
   const [editingPuce, setEditingPuce] = useState<Puce | null>(null);
   const userEditedNotesRef = useRef(false);
 
+  // ── Asset list pagination ──
+  const [materialsPage, setMaterialsPage] = useState(0);
+  const MATERIALS_PER_PAGE = 7;
+
   // ── Décharge state ──
   const [dechargePreviewMaterials, setDechargePreviewMaterials] = useState<Material[] | null>(null);
   const [dechargePreviewPuces, setDechargePreviewPuces] = useState<Puce[] | null>(null);
+
+  const totalMaterialsPages = Math.max(1, Math.ceil(nodeMaterials.length / MATERIALS_PER_PAGE));
+
+  const pagedMaterials = useMemo(() => {
+    const start = materialsPage * MATERIALS_PER_PAGE;
+    return nodeMaterials.slice(start, start + MATERIALS_PER_PAGE);
+  }, [nodeMaterials, materialsPage]);
+
+  useEffect(() => {
+    setMaterialsPage(0);
+  }, [activeSubNode?.id]);
+
+  useEffect(() => {
+    if (materialsPage > totalMaterialsPages - 1) {
+      setMaterialsPage(Math.max(0, totalMaterialsPages - 1));
+    }
+  }, [totalMaterialsPages, materialsPage]);
 
   React.useEffect(() => {
     if (selectedAssetFromScanner) {
@@ -367,82 +388,84 @@ export default function PortalView({
   const [nodeType, setNodeType] = useState<'Office' | 'Person' | 'Cabinet' | 'Other'>('Person');
 
   const [matName, setMatName] = useState('');
-  // ─── UPDATED: Added 'Access Point' to the type union ────────────────────
   const [matType, setMatType] = useState<'Printer' | 'Server' | 'Switch' | 'Desktop' | 'Screen' | 'UPS' | 'Laptop' | 'Mouse' | 'Keyboard' | 'Phone' | 'Cable' | 'Desk Phone' | 'Flash Disque' | 'Access Point' | 'Other'>('Laptop');
   const [matStatus, setMatStatus] = useState<'Active' | 'Under Repair' | 'In Storage' | 'Retired'>('Active');
-  // ── NEW: condition state ──
   const [matCondition, setMatCondition] = useState<'Bon' | 'Neuf'>('Bon');
   const [matSerial, setMatSerial] = useState('');
   const [matCost, setMatCost] = useState('');
   const [matDate, setMatDate] = useState('');
   const [matNotes, setMatNotes] = useState('');
-const saveCatalogToServer = (
-  updatedCatalog: Record<string, CatalogItem>
-) => {
-  setCatalog(updatedCatalog);
 
-  fetch('/api/catalog', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(updatedCatalog),
-  }).catch(() => {});
-};
-// ─── Auto-populate remarks for Desktop/Laptop ──────────────────────────────
-useEffect(() => {
-  const isDesktopOrLaptop = matType === 'Desktop' || matType === 'Laptop';
-  const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
-  
-  if (isDesktopOrLaptop) {
-    if (!userEditedNotesRef.current) {
-      const currentNotes = matNotes.trim();
-      if (!currentNotes || currentNotes === template.trim() || currentNotes === 'Processeur: \nRAM: \nGPU: \nStockage:') {
-        setMatNotes(template);
+  const saveCatalogToServer = (
+    updatedCatalog: Record<string, CatalogItem>
+  ) => {
+    setCatalog(updatedCatalog);
+
+    fetch('/api/catalog', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updatedCatalog),
+    }).catch(() => {});
+  };
+
+  // ─── Auto-populate remarks for Desktop/Laptop ──────────────────────────────
+  useEffect(() => {
+    const isDesktopOrLaptop = matType === 'Desktop' || matType === 'Laptop';
+    const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
+    
+    if (isDesktopOrLaptop) {
+      if (!userEditedNotesRef.current) {
+        const currentNotes = matNotes.trim();
+        if (!currentNotes || currentNotes === template.trim() || currentNotes === 'Processeur: \nRAM: \nGPU: \nStockage:') {
+          setMatNotes(template);
+          userEditedNotesRef.current = false;
+        }
+      }
+    } else {
+      if (matNotes.trim() === template.trim() || matNotes.trim() === 'Processeur: \nRAM: \nGPU: \nStockage:') {
+        setMatNotes('');
         userEditedNotesRef.current = false;
       }
     }
-  } else {
-    if (matNotes.trim() === template.trim() || matNotes.trim() === 'Processeur: \nRAM: \nGPU: \nStockage:') {
-      setMatNotes('');
+  }, [matType]);
+
+  // Also run on initial mount
+  useEffect(() => {
+    const isDesktopOrLaptop = matType === 'Desktop' || matType === 'Laptop';
+    const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
+    
+    if (isDesktopOrLaptop && !matNotes.trim()) {
+      setMatNotes(template);
+    }
+  }, []);
+
+  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setMatNotes(value);
+    
+    const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
+    if (value.trim() !== template.trim() && value.trim() !== 'Processeur: \nRAM: \nGPU: \nStockage:') {
+      userEditedNotesRef.current = true;
+    } else {
       userEditedNotesRef.current = false;
     }
-  }
-}, [matType]);
+  };
 
-// Also run on initial mount
-useEffect(() => {
-  const isDesktopOrLaptop = matType === 'Desktop' || matType === 'Laptop';
-  const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
-  
-  if (isDesktopOrLaptop && !matNotes.trim()) {
-    setMatNotes(template);
-  }
-}, []);
-const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-  const value = e.target.value;
-  setMatNotes(value);
-  
-  const template = 'Processeur: \nRAM: \nGPU: \nStockage:';
-  if (value.trim() !== template.trim() && value.trim() !== 'Processeur: \nRAM: \nGPU: \nStockage:') {
-    userEditedNotesRef.current = true;
-  } else {
-    userEditedNotesRef.current = false;
-  }
-};
   // ─── Dynamic Catalog Picker states ─────────────────────────────────────────
   const [catalog, setCatalog] = useState<Record<string, CatalogItem>>(DEFAULT_CATALOG);
 
-useEffect(() => {
-  fetch('/api/catalog')
-    .then(res => res.json())
-    .then(data => {
-      if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-        setCatalog(data);
-      }
-    })
-    .catch(() => {});
-}, []);
+  useEffect(() => {
+    fetch('/api/catalog')
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+          setCatalog(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [selectedCatalogType, setSelectedCatalogType] = useState<string>('');
   const [selectedCatalogBrand, setSelectedCatalogBrand] = useState<string>('');
@@ -475,37 +498,10 @@ useEffect(() => {
   }, [selectedCatalogType, selectedCatalogBrand, catalog]);
 
   React.useEffect(() => {
-  if (!selectedCatalogType) return;
-  
-  const nameParts = [selectedCatalogType];
-
-  let brand = '';
-  if (selectedCatalogBrand === '__NEW__') {
-    brand = newBrandName.trim();
-  } else if (selectedCatalogBrand) {
-    brand = selectedCatalogBrand;
-  }
-  if (brand) nameParts.push(brand);
-
-  let model = '';
-  if (selectedCatalogModel === '__NEW__') {
-    model = newModelName.trim();
-  } else if (selectedCatalogModel) {
-    model = selectedCatalogModel;
-  }
-  if (model) nameParts.push(model);
-
-  const newName = nameParts.join(' ');
-  if (newName !== matName) {
-    setMatName(newName);
-  }
-}, [selectedCatalogType, selectedCatalogBrand, newBrandName, selectedCatalogModel, newModelName]);
-// ─── Special handler for new model name ───
-useEffect(() => {
-  // Only run when we're adding a new model and have a model name
-  if (selectedCatalogModel === '__NEW__' && newModelName.trim() && selectedCatalogType) {
-    const nameParts = [selectedCatalogType];
+    if (!selectedCatalogType) return;
     
+    const nameParts = [selectedCatalogType];
+
     let brand = '';
     if (selectedCatalogBrand === '__NEW__') {
       brand = newBrandName.trim();
@@ -513,19 +509,47 @@ useEffect(() => {
       brand = selectedCatalogBrand;
     }
     if (brand) nameParts.push(brand);
-    
-    nameParts.push(newModelName.trim());
+
+    let model = '';
+    if (selectedCatalogModel === '__NEW__') {
+      model = newModelName.trim();
+    } else if (selectedCatalogModel) {
+      model = selectedCatalogModel;
+    }
+    if (model) nameParts.push(model);
+
     const newName = nameParts.join(' ');
     if (newName !== matName) {
       setMatName(newName);
     }
-  }
-}, [newModelName]); // Only depend on newModelName
-  const [puceSerial,   setPuceSerial]   = useState('');
-  const [pucePhone,    setPucePhone]    = useState('');
-  const [pucePuk,      setPucePuk]      = useState('');
-  const [puceCredit,   setPuceCredit]   = useState('');
-  const [puceStatus,   setPuceStatus]   = useState<'Active' | 'Suspended'>('Active');
+  }, [selectedCatalogType, selectedCatalogBrand, newBrandName, selectedCatalogModel, newModelName]);
+
+  // ─── Special handler for new model name ───
+  useEffect(() => {
+    if (selectedCatalogModel === '__NEW__' && newModelName.trim() && selectedCatalogType) {
+      const nameParts = [selectedCatalogType];
+      
+      let brand = '';
+      if (selectedCatalogBrand === '__NEW__') {
+        brand = newBrandName.trim();
+      } else if (selectedCatalogBrand) {
+        brand = selectedCatalogBrand;
+      }
+      if (brand) nameParts.push(brand);
+      
+      nameParts.push(newModelName.trim());
+      const newName = nameParts.join(' ');
+      if (newName !== matName) {
+        setMatName(newName);
+      }
+    }
+  }, [newModelName]);
+
+  const [puceSerial, setPuceSerial] = useState('');
+  const [pucePhone, setPucePhone] = useState('');
+  const [pucePuk, setPucePuk] = useState('');
+  const [puceCredit, setPuceCredit] = useState('');
+  const [puceStatus, setPuceStatus] = useState<'Active' | 'Suspended'>('Active');
   const [puceContract, setPuceContract] = useState<'TC' | 'LX' | 'PL'>('TC');
 
   const triggerToast = (msg: string) => {
@@ -572,9 +596,9 @@ useEffect(() => {
       role: nodeRole.trim() || undefined,
       type: nodeType,
       officeNum: String(subNodes.filter(s => {
-  const mng = managers.find(m => m.id === s.managerId);
-  return mng?.company === activeManager.company;
-}).length + 1),
+        const mng = managers.find(m => m.id === s.managerId);
+        return mng?.company === activeManager.company;
+      }).length + 1),
       managerId: activeManager.id
     };
 
@@ -601,23 +625,21 @@ useEffect(() => {
       matType,
       materials
     );
-const brand =
-  selectedCatalogBrand === '__NEW__'
-    ? newBrandName.trim()
-    : selectedCatalogBrand;
 
-const model =
-  selectedCatalogModel === '__NEW__'
-    ? newModelName.trim()
-    : selectedCatalogModel;
+    const brand = selectedCatalogBrand === '__NEW__'
+      ? newBrandName.trim()
+      : selectedCatalogBrand;
 
-const materialName = [
-  selectedCatalogType,
-  brand,
-  model,
-]
-  .filter(Boolean)
-  .join(' ');
+    const model = selectedCatalogModel === '__NEW__'
+      ? newModelName.trim()
+      : selectedCatalogModel;
+
+    const materialName = [
+      selectedCatalogType,
+      brand,
+      model,
+    ].filter(Boolean).join(' ');
+
     const newMaterial: Material = {
       id: `mat-${Date.now()}`,
       name: materialName,
@@ -628,7 +650,6 @@ const materialName = [
       materialNum: materialNum,
       codification: codification,
       status: matStatus,
-      // ── NEW: include condition ──
       condition: matCondition,
       serialNumber: matSerial.trim() || `SN-${Math.floor(100000 + Math.random() * 900000)}`,
       purchaseDate: matDate || undefined,
@@ -690,8 +711,8 @@ const materialName = [
       }
 
       if (catalogChanged) {
-  saveCatalogToServer(updatedCatalog);
-}
+        saveCatalogToServer(updatedCatalog);
+      }
     }
 
     onAddMaterial(newMaterial);
@@ -704,7 +725,6 @@ const materialName = [
     setMatNotes('');
     setMatDate('');
     setMatStatus('Active');
-    // ── NEW: reset condition ──
     setMatCondition('Bon');
 
     setSelectedCatalogType('');
@@ -769,86 +789,78 @@ const materialName = [
 
   // ── Décharge document renderer ──
   const renderDechargeDocument = (selectedMaterials: Material[]) => {
-      if (selectedMaterials.length === 0) return null;
-      const node = subNodes.find(n => n.id === selectedMaterials[0].assignedNodeId) as any;
-      const mng  = node ? managers.find(m => m.id === node.managerId) as any : null;
-      const dept = mng ? departments.find(d => d.id === mng.departmentId) : null;
-      const currentDate = new Date().toLocaleDateString("fr-FR");
-  
-      return (
-        <div className="printable-area bg-white text-black w-[210mm] h-[297mm] mx-auto px-[20mm] py-[14mm] font-sans text-[12.5px] leading-[1.5] print:w-[210mm] print:h-[297mm] box-border flex flex-col overflow-hidden">
-          {/* ── Header ── */}
-          <div>
-            <div className="flex items-start gap-4">
-              <img src="/tc.jpg" alt="TECHNOCERAM" className="w-14 object-contain" />
-              <h1 className="font-black text-[20px] leading-none mt-1">TECHNOCERAM</h1>
-            </div>
-            <div className="border-b-[3px] border-red-600 mt-5" />
-            <p className="font-semibold text-[13px] mt-3">N° : ______ /2026</p>
+    if (selectedMaterials.length === 0) return null;
+    const node = subNodes.find(n => n.id === selectedMaterials[0].assignedNodeId) as any;
+    const mng = node ? managers.find(m => m.id === node.managerId) as any : null;
+    const dept = mng ? departments.find(d => d.id === mng.departmentId) : null;
+    const currentDate = new Date().toLocaleDateString("fr-FR");
+
+    return (
+      <div className="printable-area bg-white text-black w-[210mm] h-[297mm] mx-auto px-[20mm] py-[14mm] font-sans text-[12.5px] leading-[1.5] print:w-[210mm] print:h-[297mm] box-border flex flex-col overflow-hidden">
+        <div>
+          <div className="flex items-start gap-4">
+            <img src="/tc.jpg" alt="TECHNOCERAM" className="w-14 object-contain" />
+            <h1 className="font-black text-[20px] leading-none mt-1">TECHNOCERAM</h1>
           </div>
-  
-          {/* ── Title ── */}
-          <div className="mt-15 text-center">
-            <h2 className="font-black text-[18px]">Bon de Décharge pour Matériel Informatique</h2>
-          </div>
-  
-          {/* ── Intro paragraph ── */}
-          <div className="mt-15 text-[13px] leading-[1.7]">
-            <p>
-              Je soussigné(e),{" "}
-              <strong>{node?.name || "________________"}</strong>,{" "}
-              <strong>{node?.role || mng?.role || "________________"}</strong>{" "}
-              de la SARL TECHNOCERAM, déclare par la présente avoir reçu le matériel informatique suivant,
-              et fournir, à cet effet, une copie de ma carte d'identité nationale n°{" "}
-              <strong>{(node as any)?.cin || "________________"}</strong>.
-            </p>
-          </div>
-  
-          {/* ── Materials list ── */}
-          <div className="mt-4 text-[13px] leading-[1.6] space-y-1">
-            {selectedMaterials.map((mat) => (
-              <div key={mat.id} className="space-y-0.5">
-                <p><strong>{mat.type} :</strong> {mat.name}</p>
-                <p><strong>Marque et modèle :</strong> {mat.name}</p>
-                {/* ── NEW: show condition in décharge ── */}
-                <p><strong>État :</strong> {mat.condition || 'Bon'}</p>
-                {mat.notes && <p className="whitespace-pre-wrap text-[12.5px] leading-[1.55]">{mat.notes}</p>}
-              </div>
-            ))}
-          </div>
-  
-          {/* ── Commitment paragraphs ── */}
-          <div className="mt-5 text-[13px] leading-[1.7] space-y-3">
-            <p>Je reconnais avoir reçu ce matériel en <strong>
-    {selectedMaterials[0]?.condition === 'Neuf'
-      ? 'état neuf'
-      : 'bon état'}
-  </strong>{" "} de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
-            <p>Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.</p>
-            <p>En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel en bon état dans les plus brefs délais.</p>
-          </div>
-  
-          {/* ── Signature always pinned to bottom ── */}
-          <div className="mt-auto flex justify-end pb-16">
-            <div className="w-72">
-              <p className="text-[13px]">
-                Fait à BATNA, le {(() => {
-                  const d = selectedMaterials[0]?.purchaseDate;
-                  if (!d) return currentDate;
-                  const date = new Date(d);
-                  return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
-                })()}
-              </p>
-              <div className="mt-16 mb-1 border-b border-black w-full" />
-              <p className="text-[11px] text-slate-500 mb-5">Signature</p>
-              <p className="font-bold uppercase text-[13px]">{node?.name}</p>
-              <p className="font-semibold text-[13px]">SARL TECHNOCERAM</p>
-            </div>
-          </div>
-  
+          <div className="border-b-[3px] border-red-600 mt-5" />
+          <p className="font-semibold text-[13px] mt-3">N° : ______ /2026</p>
         </div>
-      );
-    };
+
+        <div className="mt-15 text-center">
+          <h2 className="font-black text-[18px]">Bon de Décharge pour Matériel Informatique</h2>
+        </div>
+
+        <div className="mt-15 text-[13px] leading-[1.7]">
+          <p>
+            Je soussigné(e),{" "}
+            <strong>{node?.name || "________________"}</strong>,{" "}
+            <strong>{node?.role || mng?.role || "________________"}</strong>{" "}
+            de la SARL TECHNOCERAM, déclare par la présente avoir reçu le matériel informatique suivant,
+            et fournir, à cet effet, une copie de ma carte d'identité nationale n°{" "}
+            <strong>{(node as any)?.cin || "________________"}</strong>.
+          </p>
+        </div>
+
+        <div className="mt-4 text-[13px] leading-[1.6] space-y-1">
+          {selectedMaterials.map((mat) => (
+            <div key={mat.id} className="space-y-0.5">
+              <p><strong>{mat.type} :</strong> {mat.name}</p>
+              <p><strong>Marque et modèle :</strong> {mat.name}</p>
+              <p><strong>État :</strong> {mat.condition || 'Bon'}</p>
+              {mat.notes && <p className="whitespace-pre-wrap text-[12.5px] leading-[1.55]">{mat.notes}</p>}
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 text-[13px] leading-[1.7] space-y-3">
+          <p>Je reconnais avoir reçu ce matériel en <strong>
+            {selectedMaterials[0]?.condition === 'Neuf'
+              ? 'état neuf'
+              : 'bon état'}
+          </strong>{" "} de fonctionnement et m'engage à en faire un usage approprié conformément aux politiques de sécurité informatique de l'entreprise.</p>
+          <p>Je m'engage également à prendre toutes les mesures nécessaires pour assurer la sécurité et la confidentialité des données stockées sur cet appareil, ainsi que pour prévenir tout dommage, perte ou vol.</p>
+          <p>En cas de départ de l'entreprise ou de transfert de responsabilité, je m'engage à restituer ce matériel en bon état dans les plus brefs délais.</p>
+        </div>
+
+        <div className="mt-auto flex justify-end pb-16">
+          <div className="w-72">
+            <p className="text-[13px]">
+              Fait à BATNA, le {(() => {
+                const d = selectedMaterials[0]?.purchaseDate;
+                if (!d) return currentDate;
+                const date = new Date(d);
+                return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
+              })()}
+            </p>
+            <div className="mt-16 mb-1 border-b border-black w-full" />
+            <p className="text-[11px] text-slate-500 mb-5">Signature</p>
+            <p className="font-bold uppercase text-[13px]">{node?.name}</p>
+            <p className="font-semibold text-[13px]">SARL TECHNOCERAM</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const getStatusClass = (status?: string | null) => {
     switch (status) {
@@ -1226,7 +1238,7 @@ const materialName = [
                   </div>
                 ) : (
                   <div className="divide-y divide-[#F5F5F7]">
-                    {nodeMaterials.map((material) => {
+                    {pagedMaterials.map((material) => {
                       const materialOwner = activeSubNodes.find(node => node.id === material.assignedNodeId);
                       return (
                         <div
@@ -1242,7 +1254,6 @@ const materialName = [
                           tabIndex={0}
                           className="p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-5 hover:bg-[#F5F5F7]/50 transition-colors cursor-pointer focus:outline-none focus:bg-[#F5F5F7]"
                         >
-                          {/* Left: asset metadata */}
                           <div className="space-y-1.5 min-w-0 flex-1">
                             <div className="flex items-center flex-wrap gap-2">
                               <span className="font-mono font-bold text-[#1D1D1F] tracking-wide text-xs">{material.codification}</span>
@@ -1253,7 +1264,6 @@ const materialName = [
                               }`}>
                                 {material.status}
                               </span>
-                              {/* ── NEW: show condition badge in list ── */}
                               {material.condition && (
                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
                                   material.condition === 'Neuf'
@@ -1291,7 +1301,6 @@ const materialName = [
                             )}
                           </div>
 
-                          {/* Right: action buttons */}
                           <div className="flex items-center gap-1.5 shrink-0 self-start">
                             <button
                               onClick={(e) => {
@@ -1316,7 +1325,6 @@ const materialName = [
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                            {/* ── Décharge button ── */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1344,6 +1352,28 @@ const materialName = [
                   </div>
                 )}
               </div>
+
+              {activeSubNode && nodeMaterials.length > MATERIALS_PER_PAGE && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-[#F5F5F7] bg-white">
+                  <button
+                    onClick={() => setMaterialsPage(p => Math.max(0, p - 1))}
+                    disabled={materialsPage === 0}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-[#D2D2D7] text-[#424245] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#F5F5F7] transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-3 h-3" /> Prev
+                  </button>
+                  <span className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider">
+                    Page {materialsPage + 1} / {totalMaterialsPages}
+                  </span>
+                  <button
+                    onClick={() => setMaterialsPage(p => Math.min(totalMaterialsPages - 1, p + 1))}
+                    disabled={materialsPage >= totalMaterialsPages - 1}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-[#D2D2D7] text-[#424245] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#F5F5F7] transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    Next <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
 
               {activeSubNode && nodeMaterials.length > 0 && (
                 <div className="bg-[#F5F5F7] p-3.5 border-t border-[#D2D2D7] flex justify-between items-center text-[10px] font-bold text-[#86868B] tracking-wider uppercase">
@@ -1423,7 +1453,6 @@ const materialName = [
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </button>
-                          
                           <button
                             onClick={() => {
                               if (confirm(`Delete puce "${puce.phoneNumber}"?`)) {
@@ -1436,8 +1465,6 @@ const materialName = [
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                          
-                          {/* ── Décharge button ── */}
                           <button
                             onClick={() => setDechargePreviewPuces([puce])}
                             className="p-1.5 bg-white text-slate-500 hover:text-[#FF1E1E] hover:bg-red-50 border border-[#D2D2D7] rounded-lg transition-all cursor-pointer"
