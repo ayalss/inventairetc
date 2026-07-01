@@ -30,8 +30,8 @@ const dbConfig: any = {
   database: process.env.DB_NAME || 'inventory',
   connectionTimeoutMillis: 4000,
   idleTimeoutMillis: 10000,
-  max: 10,              // ← ADD THIS (default is 10 but make it explicit)
-  allowExitOnIdle: true // ← ADD THIS
+  max: 10,
+  allowExitOnIdle: true
 };
 
 if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '') {
@@ -44,53 +44,53 @@ let isDbConnected = false;
 let activeConnectionError = '';
 
 const memoryStore = {
-  departments: [...INITIAL_DEPARTMENTS] as any[],
-  managers:    [...INITIAL_MANAGERS]    as any[],
-  subNodes:    [...INITIAL_SUB_NODES]   as any[],
-  materials:   [...INITIAL_MATERIALS]   as any[],
-  puces:        [] as any[],
-  auditLogs:    [] as any[],
-  materialHistory: [] as any[],
-  users: [] as any[],
-  // ─── ADD THIS ──────────────────────────────────────────────
+  departments:      [...INITIAL_DEPARTMENTS] as any[],
+  managers:         [...INITIAL_MANAGERS]    as any[],
+  subNodes:         [...INITIAL_SUB_NODES]   as any[],
+  materials:        [...INITIAL_MATERIALS]   as any[],
+  puces:            [] as any[],
+  auditLogs:        [] as any[],
+  materialHistory:  [] as any[],
+  users:            [] as any[],
+  purchaseRequests: [] as any[],
   catalog: {
     ecran: {
       label: 'Écran / Screen',
       deviceCategory: 'Screen',
       brands: [
-        { name: 'LG', models: ['24MK600', 'Flatron IPS', 'UltraGear 27"'] },
+        { name: 'LG',      models: ['24MK600', 'Flatron IPS', 'UltraGear 27"'] },
         { name: 'Samsung', models: ['SyncMaster', 'T35F', 'Odyssey G3'] },
-        { name: 'Dell', models: ['P2419H', 'E2216H'] },
-        { name: 'HP', models: ['EliteDisplay', 'ProDisplay'] }
+        { name: 'Dell',    models: ['P2419H', 'E2216H'] },
+        { name: 'HP',      models: ['EliteDisplay', 'ProDisplay'] }
       ]
     },
     clavier: {
       label: 'Clavier / Keyboard',
       deviceCategory: 'Keyboard',
       brands: [
-        { name: 'Dell', models: ['KB216', 'KB522'] },
-        { name: 'HP', models: ['K1500', 'Slim Keyboard'] },
+        { name: 'Dell',     models: ['KB216', 'KB522'] },
+        { name: 'HP',       models: ['K1500', 'Slim Keyboard'] },
         { name: 'Logitech', models: ['K120', 'K270 Wireless', 'MX Keys'] },
-        { name: 'Lenovo', models: ['Essential Wired'] }
+        { name: 'Lenovo',   models: ['Essential Wired'] }
       ]
     },
     souris: {
       label: 'Souris / Mouse',
       deviceCategory: 'Mouse',
       brands: [
-        { name: 'Dell', models: ['MS116', 'MS3320W'] },
-        { name: 'HP', models: ['X1000', 'USB Mouse'] },
+        { name: 'Dell',     models: ['MS116', 'MS3320W'] },
+        { name: 'HP',       models: ['X1000', 'USB Mouse'] },
         { name: 'Logitech', models: ['M90', 'M185 Wireless', 'MX Master 3'] },
-        { name: 'Lenovo', models: ['Essential USB'] }
+        { name: 'Lenovo',   models: ['Essential USB'] }
       ]
     },
     printer: {
       label: 'Imprimante / Printer',
       deviceCategory: 'Printer',
       brands: [
-        { name: 'Canon', models: ['Pixma G3010', 'LBP6030', 'i-SENSYS LBP223dw'] },
-        { name: 'HP', models: ['LaserJet Pro M404dn', 'Smart Tank 515', 'Neverstop Laser'] },
-        { name: 'Epson', models: ['L3150 Wi-Fi', 'L805 Photo'] },
+        { name: 'Canon',   models: ['Pixma G3010', 'LBP6030', 'i-SENSYS LBP223dw'] },
+        { name: 'HP',      models: ['LaserJet Pro M404dn', 'Smart Tank 515', 'Neverstop Laser'] },
+        { name: 'Epson',   models: ['L3150 Wi-Fi', 'L805 Photo'] },
         { name: 'Brother', models: ['HL-L2320D', 'DCP-T420W'] }
       ]
     },
@@ -98,19 +98,19 @@ const memoryStore = {
       label: 'Laptop / Notebook',
       deviceCategory: 'Laptop',
       brands: [
-        { name: 'Dell', models: ['Latitude 5420', 'Inspiron 15', 'XPS 13'] },
-        { name: 'HP', models: ['ProBook 450 G8', 'EliteBook 840', 'Pavilion 15'] },
+        { name: 'Dell',   models: ['Latitude 5420', 'Inspiron 15', 'XPS 13'] },
+        { name: 'HP',     models: ['ProBook 450 G8', 'EliteBook 840', 'Pavilion 15'] },
         { name: 'Lenovo', models: ['ThinkPad L14', 'IdeaPad 3', 'ThinkPad E15'] },
-        { name: 'ASUS', models: ['ZenBook', 'VivoBook'] },
-        { name: 'Apple', models: ['MacBook Air M1', 'MacBook Pro 14"'] }
+        { name: 'ASUS',   models: ['ZenBook', 'VivoBook'] },
+        { name: 'Apple',  models: ['MacBook Air M1', 'MacBook Pro 14"'] }
       ]
     },
     desktop: {
       label: 'Desktop PC',
       deviceCategory: 'Desktop',
       brands: [
-        { name: 'Dell', models: ['OptiPlex 3080', 'OptiPlex 7090'] },
-        { name: 'HP', models: ['ProDesk 400', 'EliteDesk 800'] },
+        { name: 'Dell',   models: ['OptiPlex 3080', 'OptiPlex 7090'] },
+        { name: 'HP',     models: ['ProDesk 400', 'EliteDesk 800'] },
         { name: 'Lenovo', models: ['ThinkCentre M70q', 'ThinkCentre Neo 50t'] }
       ]
     },
@@ -119,25 +119,25 @@ const memoryStore = {
       deviceCategory: 'Server',
       brands: [
         { name: 'Dell', models: ['PowerEdge R650', 'PowerEdge R750', 'PowerEdge T150'] },
-        { name: 'HP', models: ['ProLiant DL360 Gen10', 'ProLiant ML30 Gen10'] }
+        { name: 'HP',   models: ['ProLiant DL360 Gen10', 'ProLiant ML30 Gen10'] }
       ]
     },
     switch: {
       label: 'Switch / Gateway',
       deviceCategory: 'Switch',
       brands: [
-        { name: 'Cisco', models: ['Catalyst 2960', 'Catalyst 9200'] },
+        { name: 'Cisco',   models: ['Catalyst 2960', 'Catalyst 9200'] },
         { name: 'TP-Link', models: ['TL-SG1024D', 'TL-SF1008D'] },
-        { name: 'D-Link', models: ['DES-1008A', 'DGS-1024D'] }
+        { name: 'D-Link',  models: ['DES-1008A', 'DGS-1024D'] }
       ]
     },
     ups: {
       label: 'UPS (Onduleur)',
       deviceCategory: 'UPS',
       brands: [
-        { name: 'APC', models: ['Back-UPS 700VA', 'Easy UPS 1000VA', 'Smart-UPS 1500VA'] },
+        { name: 'APC',     models: ['Back-UPS 700VA', 'Easy UPS 1000VA', 'Smart-UPS 1500VA'] },
         { name: 'Legrand', models: ['Keor SP 800VA', 'Niky S 1000VA'] },
-        { name: 'Eaton', models: ['5E 650i USB', 'Ellipse PRO 850'] }
+        { name: 'Eaton',   models: ['5E 650i USB', 'Ellipse PRO 850'] }
       ]
     },
     phone: {
@@ -145,16 +145,16 @@ const memoryStore = {
       deviceCategory: 'Phone',
       brands: [
         { name: 'Samsung', models: ['Galaxy A12', 'Galaxy S21'] },
-        { name: 'Apple', models: ['iPhone 11', 'iPhone 13', 'iPhone SE'] },
-        { name: 'Xiaomi', models: ['Redmi Note 10', 'Poco X3'] }
+        { name: 'Apple',   models: ['iPhone 11', 'iPhone 13', 'iPhone SE'] },
+        { name: 'Xiaomi',  models: ['Redmi Note 10', 'Poco X3'] }
       ]
     },
     'desk phone': {
       label: 'Desk Phone',
       deviceCategory: 'Desk Phone',
       brands: [
-        { name: 'Yealink', models: ['SIP-T31P', 'SIP-T46U'] },
-        { name: 'Cisco', models: ['IP Phone 7821', 'IP Phone 8845'] },
+        { name: 'Yealink',     models: ['SIP-T31P', 'SIP-T46U'] },
+        { name: 'Cisco',       models: ['IP Phone 7821', 'IP Phone 8845'] },
         { name: 'Grandstream', models: ['GRP2601', 'GXP1625'] }
       ]
     },
@@ -170,23 +170,22 @@ const memoryStore = {
       deviceCategory: 'Flash Disque',
       brands: [
         { name: 'Kingston', models: ['DataTraveler 32GB', 'DataTraveler 64GB'] },
-        { name: 'SanDisk', models: ['Cruzer Blade 16GB', 'Cruzer Glide 64GB', 'Ultra Dual Drive 128GB'] },
-        { name: 'Adata', models: ['UV128 32GB'] }
+        { name: 'SanDisk',  models: ['Cruzer Blade 16GB', 'Cruzer Glide 64GB', 'Ultra Dual Drive 128GB'] },
+        { name: 'Adata',    models: ['UV128 32GB'] }
       ]
     },
-    // ─── ADD ACCESS POINT ──────────────────────────────────
     'access point': {
       label: 'Access Point WiFi',
       deviceCategory: 'Access Point',
       brands: [
         { name: 'Ubiquiti', models: ['UAP-AC-LR', 'U6-Lite', 'U6-Pro', 'UAP-AC-Pro'] },
-        { name: 'TP-Link', models: ['EAP225', 'EAP245', 'EAP610', 'EAP110'] },
-        { name: 'Cisco', models: ['AIR-AP1815W', 'AIR-AP1840', 'AIR-AP2802E'] },
+        { name: 'TP-Link',  models: ['EAP225', 'EAP245', 'EAP610', 'EAP110'] },
+        { name: 'Cisco',    models: ['AIR-AP1815W', 'AIR-AP1840', 'AIR-AP2802E'] },
         { name: 'MikroTik', models: ['cAP AC', 'wAP AC', 'RBcAPGi-5acD2nD'] },
-        { name: 'Ruckus', models: ['R510', 'R610', 'R710'] },
-        { name: 'Zyxel', models: ['NWA1100-NH', 'NWA5123-AC', 'WAC500'] },
-        { name: 'Aruba', models: ['AP-303', 'AP-505', 'AP-515'] },
-        { name: 'Generic', models: ['WiFi Access Point', 'Dual Band AP'] }
+        { name: 'Ruckus',   models: ['R510', 'R610', 'R710'] },
+        { name: 'Zyxel',    models: ['NWA1100-NH', 'NWA5123-AC', 'WAC500'] },
+        { name: 'Aruba',    models: ['AP-303', 'AP-505', 'AP-515'] },
+        { name: 'Generic',  models: ['WiFi Access Point', 'Dual Band AP'] }
       ]
     },
     other: {
@@ -198,8 +197,9 @@ const memoryStore = {
     }
   }
 };
+
 // ==========================================
-// ROLE PERMISSIONS HELPER (mirrors frontend)
+// ROLE PERMISSIONS HELPER
 // ==========================================
 
 const ROLE_PRESETS: Record<string, Record<string, boolean>> = {
@@ -298,6 +298,10 @@ function getClientIp(req: express.Request): string {
   return req.socket.remoteAddress || 'unknown';
 }
 
+// ==========================================
+// DATABASE INITIALIZATION
+// ==========================================
+
 async function checkAndInitializeDatabase() {
   try {
     console.log(`[POSTGRES] Connecting to ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}...`);
@@ -305,12 +309,14 @@ async function checkAndInitializeDatabase() {
     isDbConnected = true;
     activeConnectionError = '';
     console.log(`[POSTGRES] Connected to "${dbConfig.database}" successfully.`);
+
     await client.query(`
-  CREATE TABLE IF NOT EXISTS settings (
-    key   VARCHAR(100) PRIMARY KEY,
-    value JSONB NOT NULL
-  );
-`);
+      CREATE TABLE IF NOT EXISTS settings (
+        key   VARCHAR(100) PRIMARY KEY,
+        value JSONB NOT NULL
+      );
+    `);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         email         VARCHAR(150) PRIMARY KEY,
@@ -396,17 +402,28 @@ async function checkAndInitializeDatabase() {
         new_value   TEXT,
         created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS purchase_requests (
+        id              VARCHAR(50)  PRIMARY KEY,
+        dai_number      VARCHAR(100) NOT NULL,
+        sub_node_id     VARCHAR(50),
+        sub_node_name   VARCHAR(100) NOT NULL,
+        department_id   VARCHAR(50),
+        department_name VARCHAR(100) NOT NULL,
+        date            DATE         NOT NULL,
+        status          VARCHAR(50)  NOT NULL DEFAULT 'Non traité',
+        notes           TEXT,
+        created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // ── Migrations ──
-    await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS condition VARCHAR(20) NOT NULL DEFAULT 'Bon';`);
-    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE;`);
+    await client.query(`ALTER TABLE materials   ADD COLUMN IF NOT EXISTS condition  VARCHAR(20)  NOT NULL DEFAULT 'Bon';`);
+    await client.query(`ALTER TABLE users        ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN      NOT NULL DEFAULT FALSE;`);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_material_history_material_id_created_at
       ON material_history (material_id, created_at DESC);
     `);
-
-    // ── NEW: permissions column migration ──
     await client.query(`
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{
@@ -425,11 +442,11 @@ async function checkAndInitializeDatabase() {
       );
       console.log('[POSTGRES] Admin user seeded.');
     }
+
     // Seed initial data only if departments table is empty
     const deptCount = await client.query('SELECT COUNT(*) FROM departments');
     if (parseInt(deptCount.rows[0].count) === 0) {
       console.log('[POSTGRES] Seeding initial data...');
-
       for (const d of INITIAL_DEPARTMENTS) {
         await client.query(
           'INSERT INTO departments (id, name, dept_num, icon, short_code) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING',
@@ -469,7 +486,6 @@ async function checkAndInitializeDatabase() {
 }
 
 // Re-check DB connection on each API request if currently disconnected
-// Replace your existing middleware with this:
 app.use(async (req, res, next) => {
   if (!isDbConnected && req.path.startsWith('/api/') && req.path !== '/api/db-status') {
     let client;
@@ -480,7 +496,7 @@ app.use(async (req, res, next) => {
     } catch {
       /* silent */
     } finally {
-      client?.release(); // ← ALWAYS release, even on success
+      client?.release();
     }
   }
   next();
@@ -505,6 +521,7 @@ app.use('/uploads', express.static(uploadsDir));
 // API ENDPOINTS
 // ==========================================
 
+// --- DB STATUS ---
 app.get('/api/db-status', (req, res) => {
   res.json({
     connected: isDbConnected,
@@ -514,7 +531,10 @@ app.get('/api/db-status', (req, res) => {
   });
 });
 
-// --- AUTH ---
+// ==========================================
+// AUTH
+// ==========================================
+
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
@@ -583,9 +603,10 @@ app.post('/api/auth/session-restored', async (req, res) => {
   res.json({ success: true });
 });
 
-// --- USERS ---
+// ==========================================
+// USERS
+// ==========================================
 
-// GET all users — includes permissions
 app.get('/api/users', async (req, res) => {
   try {
     if (isDbConnected) {
@@ -602,7 +623,6 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// POST create user — saves permissions
 app.post('/api/users', async (req, res) => {
   const { email, password, role, permissions } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
@@ -652,8 +672,7 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-// ── NEW: PATCH /api/users/:email — update role, permissions, password ──
-// IMPORTANT: this must be defined BEFORE /api/users/:email/block
+// IMPORTANT: PATCH /api/users/:email must be BEFORE /api/users/:email/block
 app.patch('/api/users/:email', async (req, res) => {
   const email      = decodeURIComponent(req.params.email).toLowerCase();
   const { role, permissions, password } = req.body;
@@ -667,33 +686,19 @@ app.patch('/api/users/:email', async (req, res) => {
       const values:  any[]    = [];
       let   idx = 1;
 
-      if (role !== undefined) {
-        updates.push(`role = $${idx++}`);
-        values.push(role);
-      }
-      if (permissions !== undefined) {
-        updates.push(`permissions = $${idx++}`);
-        values.push(JSON.stringify(permissions));
-      }
-      if (password && String(password).trim()) {
-        updates.push(`password = $${idx++}`);
-        values.push(String(password).trim());
-      }
+      if (role !== undefined)       { updates.push(`role = $${idx++}`);        values.push(role); }
+      if (permissions !== undefined){ updates.push(`permissions = $${idx++}`); values.push(JSON.stringify(permissions)); }
+      if (password && String(password).trim()) { updates.push(`password = $${idx++}`); values.push(String(password).trim()); }
 
-      if (updates.length === 0)
-        return res.status(400).json({ error: 'Nothing to update.' });
+      if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update.' });
 
       values.push(email);
       const { rows } = await pool.query(
-        `UPDATE users
-         SET ${updates.join(', ')}
-         WHERE LOWER(email) = $${idx}
+        `UPDATE users SET ${updates.join(', ')} WHERE LOWER(email) = $${idx}
          RETURNING email, role, is_blocked, created_at, permissions`,
         values
       );
-
-      if (rows.length === 0)
-        return res.status(404).json({ error: 'User not found.' });
+      if (rows.length === 0) return res.status(404).json({ error: 'User not found.' });
 
       await logAudit(
         'USER_UPDATED', adminEmail,
@@ -701,15 +706,12 @@ app.patch('/api/users/:email', async (req, res) => {
         ip, ua
       );
       res.json(rows[0]);
-
     } else {
       const u = memoryStore.users.find(u => u.email === email);
       if (!u) return res.status(404).json({ error: 'User not found.' });
-
       if (role !== undefined)        u.role        = role;
       if (permissions !== undefined) u.permissions = permissions;
       if (password && String(password).trim()) u.password = String(password).trim();
-
       await logAudit('USER_UPDATED', adminEmail, `Updated user (memory): ${email}`, ip, ua);
       const { password: _, ...safe } = u;
       res.json(safe);
@@ -719,7 +721,6 @@ app.patch('/api/users/:email', async (req, res) => {
   }
 });
 
-// PATCH block/unblock — unchanged
 app.patch('/api/users/:email/block', async (req, res) => {
   const email      = decodeURIComponent(req.params.email).toLowerCase();
   const is_blocked = Boolean(req.body.is_blocked);
@@ -734,21 +735,19 @@ app.patch('/api/users/:email/block', async (req, res) => {
       const u = memoryStore.users.find(u => u.email === email);
       if (u) u.is_blocked = is_blocked;
     }
-    const action  = is_blocked ? 'USER_BLOCKED'   : 'USER_UNBLOCKED';
+    const action  = is_blocked ? 'USER_BLOCKED' : 'USER_UNBLOCKED';
     const details = is_blocked ? `User blocked: ${email}` : `User unblocked: ${email}`;
     await logAudit(action, adminEmail, details, ip, ua);
     res.json({ success: true, email, is_blocked });
   } catch (err: any) {
-    await logAudit('USER_BLOCK_ERROR', adminEmail, `Error blocking/unblocking user: ${err.message}`, ip, ua);
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE user — unchanged
 app.delete('/api/users/:email', async (req, res) => {
-  const email = decodeURIComponent(req.params.email).toLowerCase();
-  const ip    = getClientIp(req);
-  const ua    = req.headers['user-agent'] || 'unknown';
+  const email      = decodeURIComponent(req.params.email).toLowerCase();
+  const ip         = getClientIp(req);
+  const ua         = req.headers['user-agent'] || 'unknown';
   const adminEmail = req.headers['x-admin-email'] as string || null;
 
   try {
@@ -760,12 +759,14 @@ app.delete('/api/users/:email', async (req, res) => {
     await logAudit('USER_DELETED', adminEmail, `User deleted: ${email}`, ip, ua);
     res.json({ success: true, email });
   } catch (err: any) {
-    await logAudit('USER_DELETE_ERROR', adminEmail, `Error deleting user: ${err.message}`, ip, ua);
     res.status(500).json({ error: err.message });
   }
 });
 
-// --- AUDIT LOGS ---
+// ==========================================
+// AUDIT LOGS
+// ==========================================
+
 app.get('/api/audit-logs', async (req, res) => {
   const limit  = Math.min(parseInt(String(req.query.limit  || '200')), 500);
   const offset = parseInt(String(req.query.offset || '0'));
@@ -774,9 +775,7 @@ app.get('/api/audit-logs', async (req, res) => {
     if (isDbConnected) {
       const { rows } = await pool.query(
         `SELECT id, user_email, action, details, ip_address, user_agent, created_at
-         FROM audit_logs
-         ORDER BY created_at DESC
-         LIMIT $1 OFFSET $2`,
+         FROM audit_logs ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
         [limit, offset]
       );
       const countResult = await pool.query('SELECT COUNT(*) FROM audit_logs');
@@ -790,17 +789,22 @@ app.get('/api/audit-logs', async (req, res) => {
   }
 });
 
-// --- CLEAN DB ---
+// ==========================================
+// CLEAN DB
+// ==========================================
+
 app.post('/api/clean-db', async (req, res) => {
   try {
     if (isDbConnected) {
+      await pool.query('TRUNCATE TABLE purchase_requests RESTART IDENTITY CASCADE;');
       await pool.query('TRUNCATE TABLE materials, puces, sub_nodes, managers, departments RESTART IDENTITY CASCADE;');
     } else {
-      memoryStore.departments = [];
-      memoryStore.managers    = [];
-      memoryStore.subNodes    = [];
-      memoryStore.materials   = [];
-      memoryStore.puces       = [];
+      memoryStore.departments      = [];
+      memoryStore.managers         = [];
+      memoryStore.subNodes         = [];
+      memoryStore.materials        = [];
+      memoryStore.puces            = [];
+      memoryStore.purchaseRequests = [];
     }
     res.json({ status: 'success' });
   } catch (err: any) {
@@ -808,7 +812,10 @@ app.post('/api/clean-db', async (req, res) => {
   }
 });
 
-// --- DEPARTMENTS ---
+// ==========================================
+// DEPARTMENTS
+// ==========================================
+
 app.get('/api/departments', async (req, res) => {
   try {
     if (isDbConnected) {
@@ -861,7 +868,9 @@ app.delete('/api/departments/:id', async (req, res) => {
       await pool.query('DELETE FROM departments WHERE id = $1', [id]);
     } else {
       memoryStore.departments = memoryStore.departments.filter(d => d.id !== id);
-      memoryStore.managers    = memoryStore.managers.map(m => m.departmentId === id ? { ...m, departmentId: null } : m);
+      memoryStore.managers    = memoryStore.managers.map(m =>
+        m.departmentId === id ? { ...m, departmentId: null } : m
+      );
     }
     res.json({ success: true, id });
   } catch (err: any) {
@@ -869,7 +878,10 @@ app.delete('/api/departments/:id', async (req, res) => {
   }
 });
 
-// --- MANAGERS ---
+// ==========================================
+// MANAGERS
+// ==========================================
+
 app.get('/api/managers', async (req, res) => {
   try {
     if (isDbConnected) {
@@ -899,7 +911,7 @@ app.post('/api/managers', async (req, res) => {
       if (departmentId) {
         const deptCheck = await pool.query('SELECT id FROM departments WHERE id = $1', [departmentId]);
         if (deptCheck.rows.length === 0) {
-          return res.status(400).json({ error: `Department "${departmentId}" does not exist in the database.` });
+          return res.status(400).json({ error: `Department "${departmentId}" does not exist.` });
         }
       }
       await pool.query(
@@ -929,7 +941,9 @@ app.delete('/api/managers/:id', async (req, res) => {
       await pool.query('DELETE FROM managers WHERE id = $1', [id]);
     } else {
       memoryStore.managers = memoryStore.managers.filter(m => m.id !== id);
-      memoryStore.subNodes = memoryStore.subNodes.map(s => s.managerId === id ? { ...s, managerId: null } : s);
+      memoryStore.subNodes = memoryStore.subNodes.map(s =>
+        s.managerId === id ? { ...s, managerId: null } : s
+      );
     }
     res.json({ success: true, id });
   } catch (err: any) {
@@ -937,7 +951,10 @@ app.delete('/api/managers/:id', async (req, res) => {
   }
 });
 
-// --- SUB NODES ---
+// ==========================================
+// SUB NODES
+// ==========================================
+
 app.get('/api/subnodes', async (req, res) => {
   try {
     if (isDbConnected) {
@@ -966,7 +983,7 @@ app.post('/api/subnodes', async (req, res) => {
       if (managerId) {
         const mgrCheck = await pool.query('SELECT id FROM managers WHERE id = $1', [managerId]);
         if (mgrCheck.rows.length === 0) {
-          return res.status(400).json({ error: `Manager "${managerId}" does not exist in the database.` });
+          return res.status(400).json({ error: `Manager "${managerId}" does not exist.` });
         }
       }
       await pool.query(
@@ -1033,7 +1050,7 @@ app.post('/api/subnodes/:id/documents', upload.array('files'), async (req, res) 
 app.delete('/api/subnodes/:id/documents/:docId', async (req, res) => {
   try {
     if (isDbConnected) {
-      const result = await pool.query(`SELECT documents FROM sub_nodes WHERE id = $1`, [req.params.id]);
+      const result   = await pool.query(`SELECT documents FROM sub_nodes WHERE id = $1`, [req.params.id]);
       const filtered = (result.rows[0]?.documents || []).filter((d: any) => d.id !== req.params.docId);
       await pool.query(`UPDATE sub_nodes SET documents = $1 WHERE id = $2`, [JSON.stringify(filtered), req.params.id]);
     } else {
@@ -1046,7 +1063,10 @@ app.delete('/api/subnodes/:id/documents/:docId', async (req, res) => {
   }
 });
 
-// --- MATERIALS ---
+// ==========================================
+// MATERIALS
+// ==========================================
+
 app.get('/api/materials', async (req, res) => {
   try {
     if (isDbConnected) {
@@ -1073,8 +1093,7 @@ app.post('/api/materials', async (req, res) => {
   const {
     id, name, type, company, deptNum, officeNum, materialNum,
     codification, status, serialNumber, purchaseDate, cost, notes,
-    condition,
-    assignedNodeId
+    condition, assignedNodeId
   } = req.body;
 
   if (!id || !name || !type || !company || !codification || !status) {
@@ -1086,16 +1105,18 @@ app.post('/api/materials', async (req, res) => {
       if (assignedNodeId) {
         const nodeCheck = await pool.query('SELECT id FROM sub_nodes WHERE id = $1', [assignedNodeId]);
         if (nodeCheck.rows.length === 0) {
-          return res.status(400).json({ error: `Sub-node "${assignedNodeId}" does not exist in the database.` });
+          return res.status(400).json({ error: `Sub-node "${assignedNodeId}" does not exist.` });
         }
       }
       const existingResult = await pool.query(
-        `SELECT id, name, status, condition, serial_number AS "serialNumber",
+        `SELECT id, name, status, condition,
+                serial_number    AS "serialNumber",
                 assigned_node_id AS "assignedNodeId"
          FROM materials WHERE id = $1`,
         [id]
       );
       const existingMaterial = existingResult.rows[0];
+
       const { rows } = await pool.query(
         `INSERT INTO materials (
            id, name, type, company, dept_num, office_num, material_num,
@@ -1124,20 +1145,20 @@ app.post('/api/materials', async (req, res) => {
           assignedNodeId || null
         ]
       );
+
       if (!existingMaterial) {
         await logMaterialHistory(id, 'MATERIAL_CREATED', 'status', null, status);
       } else {
         const trackedChanges = [
-          ['status', existingMaterial.status, status],
-          ['condition', existingMaterial.condition, condition || 'Bon'],
+          ['status',         existingMaterial.status,         status],
+          ['condition',      existingMaterial.condition,      condition || 'Bon'],
           ['assignedNodeId', existingMaterial.assignedNodeId, assignedNodeId || null],
-          ['name', existingMaterial.name, name],
-          ['serialNumber', existingMaterial.serialNumber, serialNumber || null],
+          ['name',           existingMaterial.name,           name],
+          ['serialNumber',   existingMaterial.serialNumber,   serialNumber || null],
         ] as const;
-
         for (const [field, oldValue, newValue] of trackedChanges) {
-          const oldText = oldValue === undefined || oldValue === null ? '' : String(oldValue);
-          const newText = newValue === undefined || newValue === null ? '' : String(newValue);
+          const oldText = oldValue == null ? '' : String(oldValue);
+          const newText = newValue == null ? '' : String(newValue);
           if (oldText !== newText) {
             await logMaterialHistory(id, field === 'status' ? 'STATUS_CHANGED' : 'MATERIAL_UPDATED', field, oldValue, newValue);
           }
@@ -1145,30 +1166,29 @@ app.post('/api/materials', async (req, res) => {
       }
       res.json(rows[0]);
     } else {
-      const idx = memoryStore.materials.findIndex(m => m.id === id);
+      const idx              = memoryStore.materials.findIndex(m => m.id === id);
       const existingMaterial = idx > -1 ? memoryStore.materials[idx] : null;
       const payload = {
         id, name, type, company, deptNum, officeNum, materialNum,
         codification, status, serialNumber, purchaseDate, cost, notes,
-        condition: condition || 'Bon',
-        assignedNodeId
+        condition: condition || 'Bon', assignedNodeId
       };
       if (idx > -1) memoryStore.materials[idx] = payload;
       else memoryStore.materials.push(payload);
+
       if (!existingMaterial) {
         await logMaterialHistory(id, 'MATERIAL_CREATED', 'status', null, status);
       } else {
         const trackedChanges = [
-          ['status', existingMaterial.status, status],
-          ['condition', existingMaterial.condition, condition || 'Bon'],
+          ['status',         existingMaterial.status,         status],
+          ['condition',      existingMaterial.condition,      condition || 'Bon'],
           ['assignedNodeId', existingMaterial.assignedNodeId, assignedNodeId || null],
-          ['name', existingMaterial.name, name],
-          ['serialNumber', existingMaterial.serialNumber, serialNumber || null],
+          ['name',           existingMaterial.name,           name],
+          ['serialNumber',   existingMaterial.serialNumber,   serialNumber || null],
         ] as const;
-
         for (const [field, oldValue, newValue] of trackedChanges) {
-          const oldText = oldValue === undefined || oldValue === null ? '' : String(oldValue);
-          const newText = newValue === undefined || newValue === null ? '' : String(newValue);
+          const oldText = oldValue == null ? '' : String(oldValue);
+          const newText = newValue == null ? '' : String(newValue);
           if (oldText !== newText) {
             await logMaterialHistory(id, field === 'status' ? 'STATUS_CHANGED' : 'MATERIAL_UPDATED', field, oldValue, newValue);
           }
@@ -1184,17 +1204,15 @@ app.post('/api/materials', async (req, res) => {
 
 app.get('/api/materials/:id/history', async (req, res) => {
   const { id } = req.params;
-
   try {
     if (isDbConnected) {
       const { rows } = await pool.query(
         `SELECT id,
                 material_id AS "materialId",
-                action,
-                field,
-                old_value AS "oldValue",
-                new_value AS "newValue",
-                created_at AS "createdAt"
+                action, field,
+                old_value   AS "oldValue",
+                new_value   AS "newValue",
+                created_at  AS "createdAt"
          FROM material_history
          WHERE material_id = $1
          ORDER BY created_at DESC, id DESC
@@ -1207,13 +1225,13 @@ app.get('/api/materials/:id/history', async (req, res) => {
         .filter(h => h.material_id === id)
         .slice(0, 100)
         .map(h => ({
-          id: h.id,
+          id:         h.id,
           materialId: h.material_id,
-          action: h.action,
-          field: h.field,
-          oldValue: h.old_value,
-          newValue: h.new_value,
-          createdAt: h.created_at,
+          action:     h.action,
+          field:      h.field,
+          oldValue:   h.old_value,
+          newValue:   h.new_value,
+          createdAt:  h.created_at,
         }));
       res.json({ history });
     }
@@ -1236,7 +1254,10 @@ app.delete('/api/materials/:id', async (req, res) => {
   }
 });
 
-// --- PUCES ---
+// ==========================================
+// PUCES
+// ==========================================
+
 app.get('/api/puces', async (req, res) => {
   try {
     if (isDbConnected) {
@@ -1258,126 +1279,20 @@ app.get('/api/puces', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// --- CATALOG ---
-app.get('/api/catalog', async (req, res) => {
-  try {
-    if (isDbConnected) {
-      const { rows } = await pool.query(`SELECT value FROM settings WHERE key = 'article_catalog'`);
-      if (rows.length > 0) {
-        // Return the catalog if it exists
-        return res.json(rows[0].value);
-      }
-      // If not found, return the default catalog from memory or a default object
-      // Check if we have a default catalog in memory
-      const defaultCatalog = (memoryStore as any).defaultCatalog;
-      if (defaultCatalog) {
-        return res.json(defaultCatalog);
-      }
-      // Return a minimal default catalog so the frontend doesn't break
-      return res.json({
-        ecran: { label: 'Écran / Screen', deviceCategory: 'Screen', brands: [] },
-        clavier: { label: 'Clavier / Keyboard', deviceCategory: 'Keyboard', brands: [] },
-        souris: { label: 'Souris / Mouse', deviceCategory: 'Mouse', brands: [] },
-        printer: { label: 'Imprimante / Printer', deviceCategory: 'Printer', brands: [] },
-        laptop: { label: 'Laptop / Notebook', deviceCategory: 'Laptop', brands: [] },
-        desktop: { label: 'Desktop PC', deviceCategory: 'Desktop', brands: [] },
-        server: { label: 'Server Room Host', deviceCategory: 'Server', brands: [] },
-        switch: { label: 'Switch / Gateway', deviceCategory: 'Switch', brands: [] },
-        ups: { label: 'UPS (Onduleur)', deviceCategory: 'UPS', brands: [] },
-        phone: { label: 'Phone', deviceCategory: 'Phone', brands: [] },
-        'desk phone': { label: 'Desk Phone', deviceCategory: 'Desk Phone', brands: [] },
-        cable: { label: 'Cable', deviceCategory: 'Cable', brands: [] },
-        'flash disque': { label: 'Flash Disque', deviceCategory: 'Flash Disque', brands: [] },
-        'access point': { label: 'Access Point WiFi', deviceCategory: 'Access Point', brands: [] },
-        other: { label: 'Autre / Other', deviceCategory: 'Other', brands: [] }
-      });
-    } else {
-      // Memory fallback
-      const saved = (memoryStore as any).catalog;
-      if (saved) return res.json(saved);
-      // Return default catalog from memory store
-      const defaultCatalog = (memoryStore as any).defaultCatalog;
-      if (defaultCatalog) return res.json(defaultCatalog);
-      // Return minimal default
-      return res.json({
-        ecran: { label: 'Écran / Screen', deviceCategory: 'Screen', brands: [] },
-        clavier: { label: 'Clavier / Keyboard', deviceCategory: 'Keyboard', brands: [] },
-        souris: { label: 'Souris / Mouse', deviceCategory: 'Mouse', brands: [] },
-        printer: { label: 'Imprimante / Printer', deviceCategory: 'Printer', brands: [] },
-        laptop: { label: 'Laptop / Notebook', deviceCategory: 'Laptop', brands: [] },
-        desktop: { label: 'Desktop PC', deviceCategory: 'Desktop', brands: [] },
-        server: { label: 'Server Room Host', deviceCategory: 'Server', brands: [] },
-        switch: { label: 'Switch / Gateway', deviceCategory: 'Switch', brands: [] },
-        ups: { label: 'UPS (Onduleur)', deviceCategory: 'UPS', brands: [] },
-        phone: { label: 'Phone', deviceCategory: 'Phone', brands: [] },
-        'desk phone': { label: 'Desk Phone', deviceCategory: 'Desk Phone', brands: [] },
-        cable: { label: 'Cable', deviceCategory: 'Cable', brands: [] },
-        'flash disque': { label: 'Flash Disque', deviceCategory: 'Flash Disque', brands: [] },
-        'access point': { label: 'Access Point WiFi', deviceCategory: 'Access Point', brands: [] },
-        other: { label: 'Autre / Other', deviceCategory: 'Other', brands: [] }
-      });
-    }
-  } catch (err: any) {
-    console.error('Error fetching catalog:', err);
-    // Return a default catalog on error so frontend doesn't break
-    res.json({
-      ecran: { label: 'Écran / Screen', deviceCategory: 'Screen', brands: [] },
-      clavier: { label: 'Clavier / Keyboard', deviceCategory: 'Keyboard', brands: [] },
-      souris: { label: 'Souris / Mouse', deviceCategory: 'Mouse', brands: [] },
-      printer: { label: 'Imprimante / Printer', deviceCategory: 'Printer', brands: [] },
-      laptop: { label: 'Laptop / Notebook', deviceCategory: 'Laptop', brands: [] },
-      desktop: { label: 'Desktop PC', deviceCategory: 'Desktop', brands: [] },
-      server: { label: 'Server Room Host', deviceCategory: 'Server', brands: [] },
-      switch: { label: 'Switch / Gateway', deviceCategory: 'Switch', brands: [] },
-      ups: { label: 'UPS (Onduleur)', deviceCategory: 'UPS', brands: [] },
-      phone: { label: 'Phone', deviceCategory: 'Phone', brands: [] },
-      'desk phone': { label: 'Desk Phone', deviceCategory: 'Desk Phone', brands: [] },
-      cable: { label: 'Cable', deviceCategory: 'Cable', brands: [] },
-      'flash disque': { label: 'Flash Disque', deviceCategory: 'Flash Disque', brands: [] },
-      'access point': { label: 'Access Point WiFi', deviceCategory: 'Access Point', brands: [] },
-      other: { label: 'Autre / Other', deviceCategory: 'Other', brands: [] }
-    });
-  }
-});
 
-app.post('/api/catalog', async (req, res) => {
-  const catalog = req.body;
-  try {
-    // Validate the catalog data
-    if (!catalog || typeof catalog !== 'object') {
-      return res.status(400).json({ error: 'Invalid catalog data' });
-    }
-    
-    if (isDbConnected) {
-      await pool.query(`
-        INSERT INTO settings (key, value) VALUES ('article_catalog', $1)
-        ON CONFLICT (key) DO UPDATE SET value = $1
-      `, [JSON.stringify(catalog)]);
-    } else {
-      (memoryStore as any).catalog = catalog;
-    }
-    res.json({ success: true });
-  } catch (err: any) {
-    console.error('Error saving catalog:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
 app.post('/api/puces', async (req, res) => {
   const { id, serialNumber, phoneNumber, pukCode, monthlyCredit, status, assignedNodeId, contractCompany } = req.body;
-
   if (!id || !serialNumber || !phoneNumber || !pukCode || !status || !contractCompany) {
     return res.status(400).json({ error: 'Missing required puce fields.' });
   }
-
   try {
     if (isDbConnected) {
       if (assignedNodeId) {
         const nodeCheck = await pool.query('SELECT id FROM sub_nodes WHERE id = $1', [assignedNodeId]);
         if (nodeCheck.rows.length === 0) {
-          return res.status(400).json({ error: `Sub-node "${assignedNodeId}" does not exist in the database.` });
+          return res.status(400).json({ error: `Sub-node "${assignedNodeId}" does not exist.` });
         }
       }
-
       const { rows } = await pool.query(
         `INSERT INTO puces (
            id, serial_number, phone_number, puk_code, monthly_credit, status, contract_company, assigned_node_id
@@ -1406,8 +1321,7 @@ app.post('/api/puces', async (req, res) => {
       const payload = {
         id, serialNumber, phoneNumber, pukCode,
         monthlyCredit: parseFloat(monthlyCredit) || 0,
-        status, contractCompany,
-        assignedNodeId: assignedNodeId || null
+        status, contractCompany, assignedNodeId: assignedNodeId || null
       };
       if (idx > -1) memoryStore.puces[idx] = payload;
       else memoryStore.puces.push(payload);
@@ -1429,6 +1343,206 @@ app.delete('/api/puces/:id', async (req, res) => {
     }
     res.json({ success: true, id });
   } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// CATALOG
+// ==========================================
+
+app.get('/api/catalog', async (req, res) => {
+  const defaultCatalog = memoryStore.catalog;
+  try {
+    if (isDbConnected) {
+      const { rows } = await pool.query(`SELECT value FROM settings WHERE key = 'article_catalog'`);
+      return res.json(rows.length > 0 ? rows[0].value : defaultCatalog);
+    } else {
+      return res.json(defaultCatalog);
+    }
+  } catch (err: any) {
+    console.error('Error fetching catalog:', err);
+    res.json(defaultCatalog);
+  }
+});
+
+app.post('/api/catalog', async (req, res) => {
+  const catalog = req.body;
+  if (!catalog || typeof catalog !== 'object') {
+    return res.status(400).json({ error: 'Invalid catalog data' });
+  }
+  try {
+    if (isDbConnected) {
+      await pool.query(
+        `INSERT INTO settings (key, value) VALUES ('article_catalog', $1)
+         ON CONFLICT (key) DO UPDATE SET value = $1`,
+        [JSON.stringify(catalog)]
+      );
+    } else {
+      (memoryStore as any).catalog = catalog;
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Error saving catalog:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// PURCHASE REQUESTS (DEMANDES D'ACHAT)
+// ==========================================
+
+// GET all
+app.get('/api/demandes', async (req, res) => {
+  try {
+    if (isDbConnected) {
+      const { rows } = await pool.query(`
+        SELECT
+          id,
+          dai_number      AS "daiNumber",
+          sub_node_id     AS "subNodeId",
+          sub_node_name   AS "subNodeName",
+          department_id   AS "departmentId",
+          department_name AS "departmentName",
+          to_char(date, 'YYYY-MM-DD') AS date,
+          status,
+          notes,
+          created_at      AS "createdAt"
+        FROM purchase_requests
+        ORDER BY created_at DESC
+      `);
+      res.json(rows);
+    } else {
+      res.json(memoryStore.purchaseRequests);
+    }
+  } catch (err: any) {
+    console.error('❌ GET /api/demandes error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST create
+app.post('/api/demandes', async (req, res) => {
+  const {
+    id, daiNumber, subNodeId, subNodeName,
+    departmentId, departmentName, date, status, notes
+  } = req.body;
+
+  if (!id || !daiNumber || !subNodeName || !departmentName || !date) {
+    return res.status(400).json({ error: 'Missing required fields: id, daiNumber, subNodeName, departmentName, date.' });
+  }
+
+  const safeStatus = status || 'Non traité';
+
+  try {
+    if (isDbConnected) {
+      const { rows } = await pool.query(
+        `INSERT INTO purchase_requests
+           (id, dai_number, sub_node_id, sub_node_name, department_id, department_name, date, status, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING
+           id,
+           dai_number      AS "daiNumber",
+           sub_node_id     AS "subNodeId",
+           sub_node_name   AS "subNodeName",
+           department_id   AS "departmentId",
+           department_name AS "departmentName",
+           to_char(date, 'YYYY-MM-DD') AS date,
+           status, notes,
+           created_at AS "createdAt"`,
+        [
+          id, daiNumber,
+          subNodeId     || null,
+          subNodeName,
+          departmentId  || null,
+          departmentName,
+          date,
+          safeStatus,
+          notes || null
+        ]
+      );
+      res.json(rows[0]);
+    } else {
+      const payload = {
+        id, daiNumber,
+        subNodeId:      subNodeId     || null,
+        subNodeName,
+        departmentId:   departmentId  || null,
+        departmentName,
+        date,
+        status:    safeStatus,
+        notes:     notes || null,
+        createdAt: new Date().toISOString(),
+      };
+      memoryStore.purchaseRequests.unshift(payload);
+      res.json(payload);
+    }
+  } catch (err: any) {
+    console.error('❌ POST /api/demandes error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH update status (or any field)
+app.patch('/api/demandes/:id', async (req, res) => {
+  const { id }    = req.params;
+  const { status, notes } = req.body;
+
+  try {
+    if (isDbConnected) {
+      const updates: string[] = [];
+      const values:  any[]    = [];
+      let   idx = 1;
+
+      if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
+      if (notes  !== undefined) { updates.push(`notes  = $${idx++}`); values.push(notes);  }
+
+      if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update.' });
+
+      values.push(id);
+      const { rows } = await pool.query(
+        `UPDATE purchase_requests
+         SET ${updates.join(', ')}
+         WHERE id = $${idx}
+         RETURNING
+           id,
+           dai_number      AS "daiNumber",
+           sub_node_id     AS "subNodeId",
+           sub_node_name   AS "subNodeName",
+           department_id   AS "departmentId",
+           department_name AS "departmentName",
+           to_char(date, 'YYYY-MM-DD') AS date,
+           status, notes,
+           created_at AS "createdAt"`,
+        values
+      );
+      if (rows.length === 0) return res.status(404).json({ error: 'Demande not found.' });
+      res.json(rows[0]);
+    } else {
+      const item = memoryStore.purchaseRequests.find((d: any) => d.id === id);
+      if (!item) return res.status(404).json({ error: 'Demande not found.' });
+      if (status !== undefined) item.status = status;
+      if (notes  !== undefined) item.notes  = notes;
+      res.json(item);
+    }
+  } catch (err: any) {
+    console.error('❌ PATCH /api/demandes error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE
+app.delete('/api/demandes/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (isDbConnected) {
+      await pool.query('DELETE FROM purchase_requests WHERE id = $1', [id]);
+    } else {
+      memoryStore.purchaseRequests = memoryStore.purchaseRequests.filter((d: any) => d.id !== id);
+    }
+    res.json({ success: true, id });
+  } catch (err: any) {
+    console.error('❌ DELETE /api/demandes error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

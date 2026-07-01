@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-
+import DemandeAchatTab, { type DemandeAchat } from './components/DemandeAchatTab';
+import { Clock, ShoppingCart, X } from 'lucide-react'; // already in Sidebar, but needed if you use it in App
 
 import type {
   Department,
@@ -49,11 +50,14 @@ export default function App() {
   const [subNodes,    setSubNodes]    = useState<SubNode[]>([]);
   const [materials,   setMaterials]   = useState<Material[]>([]);
   const [puces,       setPuces]       = useState<Puce[]>([]);
+  const [demandes,    setDemandes]    = useState<DemandeAchat[]>([]);
 
   const [selectedDeptId,    setSelectedDeptId]    = useState<string>('');
-  const [selectedUtility,   setSelectedUtility]   = useState<'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit'>('portal');
+  const [selectedUtility,   setSelectedUtility]   = useState<'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit'| 'demandes'>('portal');
   const [selectedAssetFromScanner, setSelectedAssetFromScanner] = useState<Material | null>(null);
   const [showResetConfirm,  setShowResetConfirm]  = useState(false);
+  const [showStartupBanner, setShowStartupBanner] = useState(false);
+
 
   // ── Core sync: fetch all state from backend ──────────────────────────────
   const syncDatabaseState = async () => {
@@ -63,20 +67,22 @@ export default function App() {
       const statusData = await statusRes.json();
       setDbStatus(statusData);
 
-      const [deptRes, mngRes, nodeRes, matRes, puceRes] = await Promise.all([
+      const [deptRes, mngRes, nodeRes, matRes, puceRes, demandeRes] = await Promise.all([
         fetch('/api/departments'),
         fetch('/api/managers'),
         fetch('/api/subnodes'),
         fetch('/api/materials'),
         fetch('/api/puces'),
+        fetch('/api/demandes'),
       ]);
 
-      const [depts, mngs, nodes, mats, puceRows] = await Promise.all([
+      const [depts, mngs, nodes, mats, puceRows, demandeRows] = await Promise.all([
         deptRes.json(),
         mngRes.json(),
         nodeRes.json(),
         matRes.json(),
         puceRes.json(),
+        demandeRes.json(),
       ]);
 
       setDepartments(Array.isArray(depts) ? depts : []);
@@ -84,6 +90,7 @@ export default function App() {
       setSubNodes(   Array.isArray(nodes) ? nodes : []);
       setMaterials(  Array.isArray(mats)  ? mats  : []);
       setPuces(      Array.isArray(puceRows) ? puceRows : []);
+      setDemandes(   Array.isArray(demandeRows) ? demandeRows : []);
 
       if (Array.isArray(depts) && depts.length > 0) {
         const exists = depts.some((d: any) => d.id === selectedDeptId);
@@ -91,6 +98,12 @@ export default function App() {
       } else {
         setSelectedDeptId('');
         setSelectedUtility('management');
+      }
+
+      if (wasAlreadyLoggedIn.current) {
+        const pending = (Array.isArray(demandeRows) ? demandeRows : []).filter((d: DemandeAchat) => d.status === 'Non traité').length;
+        if (pending > 0) setShowStartupBanner(true);
+        wasAlreadyLoggedIn.current = false;
       }
     } catch (err) {
       console.error('Failed to sync state:', err);
@@ -102,14 +115,11 @@ export default function App() {
   useEffect(() => {
     if (authenticatedUserEmail) {
       syncDatabaseState();
-      if (wasAlreadyLoggedIn.current) {
-        wasAlreadyLoggedIn.current = false;
-        fetch('/api/auth/session-restored', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: authenticatedUserEmail }),
-        }).catch(err => console.error('Failed to log session restore:', err));
-      }
+      fetch('/api/auth/session-restored', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authenticatedUserEmail }),
+      }).catch(err => console.error('Failed to log session restore:', err));
     }
   }, [authenticatedUserEmail]);
 
@@ -125,6 +135,7 @@ export default function App() {
       setSubNodes([]);
       setMaterials([]);
       setPuces([]);
+      setDemandes([]);
       setSelectedDeptId('');
       setSelectedUtility('management');
       setSelectedAssetFromScanner(null);
@@ -448,6 +459,58 @@ export default function App() {
     }
   };
 
+  // ── Demandes d'achat — backed by /api/demandes (Postgres / memory fallback) ──
+  const handleAddDemande = async (d: DemandeAchat) => {
+    try {
+      const res = await fetch('/api/demandes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(d),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`POST /api/demandes failed (${res.status}): ${text}`);
+      }
+      const saved = await res.json();
+      setDemandes(prev => [saved, ...prev]);
+    } catch (err) {
+      console.error('Failed to create demande:', err);
+      await syncDatabaseState();
+    }
+  };
+
+  const handleUpdateDemandeStatus = async (id: string, status: DemandeAchat['status']) => {
+    setDemandes(prev => prev.map(d => d.id === id ? { ...d, status } : d));
+    try {
+      const res = await fetch(`/api/demandes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`PATCH /api/demandes failed (${res.status}): ${text}`);
+      }
+    } catch (err) {
+      console.error('Failed to update demande status:', err);
+      await syncDatabaseState();
+    }
+  };
+
+  const handleDeleteDemande = async (id: string) => {
+    setDemandes(prev => prev.filter(d => d.id !== id));
+    try {
+      const res = await fetch(`/api/demandes/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`DELETE /api/demandes failed (${res.status}): ${text}`);
+      }
+    } catch (err) {
+      console.error('Failed to delete demande:', err);
+      await syncDatabaseState();
+    }
+  };
+
   // ── Derived state & helpers ───────────────────────────────────────────────
   const selectedDeptObj = departments.find(d => d.id === selectedDeptId) || departments[0];
 
@@ -482,6 +545,7 @@ export default function App() {
         onSelectDept={setSelectedDeptId}
         selectedUtility={selectedUtility}
         onSelectUtility={setSelectedUtility}
+        pendingDemandesCount={demandes.filter(d => d.status === 'Non traité').length}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -642,6 +706,18 @@ export default function App() {
           {!isLoading && selectedUtility === 'audit' && (
             <UserManagementTab adminEmail={authenticatedUserEmail} />
           )}
+
+          {!isLoading && selectedUtility === 'demandes' && (
+            <DemandeAchatTab
+              departments={departments}
+              managers={managers}
+              subNodes={subNodes}
+              demandes={demandes}
+              onAddDemande={handleAddDemande}
+              onUpdateStatus={handleUpdateDemandeStatus}
+              onDeleteDemande={handleDeleteDemande}
+            />
+          )}
         </main>
 
         <InventoryChatbot
@@ -657,6 +733,26 @@ export default function App() {
 
       {/* RESET CONFIRMATION MODAL */}
       <AnimatePresence>
+        {showStartupBanner && (
+  <div className="fixed bottom-6 right-6 z-50 max-w-sm bg-white border border-amber-200 rounded-2xl shadow-xl p-4 flex items-start gap-3">
+    <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+    <div className="flex-1">
+      <p className="text-sm font-bold text-[#1D1D1F]">
+        {demandes.filter(d => d.status === 'Non traité').length} demande(s) non traitée(s)
+      </p>
+      <p className="text-xs text-[#86868B] mt-0.5">Consultez les demandes d'achat en attente.</p>
+      <button
+        onClick={() => { setShowStartupBanner(false); setSelectedUtility('demandes'); }}
+        className="mt-2 text-xs font-semibold text-[#FF1E1E] hover:underline cursor-pointer"
+      >
+        Voir les demandes →
+      </button>
+    </div>
+    <button onClick={() => setShowStartupBanner(false)} className="text-[#86868B] hover:text-[#1D1D1F] cursor-pointer">
+      <X className="w-4 h-4" />
+    </button>
+  </div>
+)}
         {showResetConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div

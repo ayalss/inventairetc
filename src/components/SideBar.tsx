@@ -1,14 +1,15 @@
 import React from 'react';
 import { Department } from '../types';
 import { useTranslation } from 'react-i18next';
-import { Network, Coins, Users, Cpu, Truck, Briefcase, Camera, Settings, FileSpreadsheet, ShieldAlert, Globe2, Smartphone } from 'lucide-react';
+import { Network, Coins, Users, Cpu, Truck, Briefcase, Camera, Settings, FileSpreadsheet, ShieldAlert, Globe2, Smartphone, ShoppingCart } from 'lucide-react';
 
 interface SidebarProps {
   departments: Department[];
   selectedDeptId: string;
   onSelectDept: (id: string) => void;
-  selectedUtility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit';
-  onSelectUtility: (utility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit') => void;
+  selectedUtility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit' | 'demandes';
+  onSelectUtility: (utility: 'portal' | 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit' | 'demandes') => void;
+  pendingDemandesCount?: number;
 }
 
 export default function Sidebar({
@@ -16,7 +17,8 @@ export default function Sidebar({
   selectedDeptId,
   onSelectDept,
   selectedUtility,
-  onSelectUtility
+  onSelectUtility,
+  pendingDemandesCount = 0,
 }: SidebarProps) {
   const { t } = useTranslation();
 
@@ -32,9 +34,10 @@ export default function Sidebar({
   };
 
   const utilityBtn = (
-    key: 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit',
+    key: 'scanner' | 'management' | 'reports' | 'puce_reports' | 'audit' | 'demandes',
     label: string,
-    Icon: React.ElementType
+    Icon: React.ElementType,
+    badge?: number
   ) => {
     const active = selectedUtility === key;
     return (
@@ -47,7 +50,12 @@ export default function Sidebar({
         }`}
       >
         <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#FF1E1E]' : 'text-[#86868B]'}`} />
-        <span>{label}</span>
+        <span className="flex-1 text-left">{label}</span>
+        {badge != null && badge > 0 && (
+          <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF1E1E] text-white text-[9px] font-bold flex items-center justify-center leading-none">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
       </button>
     );
   };
@@ -79,10 +87,11 @@ export default function Sidebar({
           {t('utilities')}
         </span>
 
-        {utilityBtn('scanner',      t('qr_scanner'),        Camera)}
+        {utilityBtn('scanner',      t('qr_scanner'),          Camera)}
         {utilityBtn('management',   t('user_infrastructure'), Settings)}
-        {utilityBtn('reports',      t('inventory_reports'), FileSpreadsheet)}
-        {utilityBtn('puce_reports', t('puce_reports'),      Smartphone)}
+        {utilityBtn('reports',      t('inventory_reports'),   FileSpreadsheet)}
+        {utilityBtn('puce_reports', t('puce_reports'),        Smartphone)}
+        {utilityBtn('demandes',     'Demandes d\'Achat',      ShoppingCart, pendingDemandesCount)}
 
         {/* Divider */}
         <div className="pt-2 pb-1">
