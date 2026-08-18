@@ -12,6 +12,7 @@ export interface Material {
   purchaseDate?: string;
   cost: number;
   notes?: string;
+  imageUrl?: string;
   assignedNodeId: string; 
   condition?: 'Bon' | 'Neuf';
   // ID of the SubNode (Office/Person/Cabinet) owning this
@@ -57,4 +58,20 @@ export interface Department {
   shortCode: string; // e.g., "IT", "FIN", "HR", "ENG", "LOG"
 }
 
+export interface TabPermissions {
+  dashboard: boolean;
+  materials: boolean;
+  puces: boolean;
+  reports: boolean;
+  portals: boolean;
+  qr: boolean;
+  admin: boolean;
+  audit: boolean;
+}
+
+export interface AuthenticatedUser {
+  email: string;
+  role: 'user' | 'manager' | 'admin' | string;
+  permissions: TabPermissions;
+}
 

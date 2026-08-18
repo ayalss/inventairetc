@@ -4,11 +4,12 @@ import { Department, Manager, SubNode, Material, Puce } from '../types';
 import { 
   MapPin, Layers, Server, Laptop, Plus, HelpCircle, UserCheck, 
   ChevronRight, ChevronLeft, User, X, Check, Mail, Info, Settings, ShieldAlert,
-  FileText, Edit, Trash2, ClipboardCheck, Printer, Smartphone, History, Activity, ArrowRight
+  FileText, Edit, Trash2, ClipboardCheck, Printer, Smartphone, History, Activity, ArrowRight, Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MaterialQrCard from './MaterialQrCard';
 import { generateMaterialCodification } from '../data';
+import { uploadAssetImage } from '../utils/uploadAssetImage';
 
 // ─── Catalog Selector types ──────────────────────────────────────────────────
 interface CatalogBrand {
@@ -395,6 +396,8 @@ export default function PortalView({
   const [matCost, setMatCost] = useState('');
   const [matDate, setMatDate] = useState('');
   const [matNotes, setMatNotes] = useState('');
+  const [matImageFile, setMatImageFile] = useState<File | null>(null);
+  const [editingMaterialImageFile, setEditingMaterialImageFile] = useState<File | null>(null);
 
   const saveCatalogToServer = (
     updatedCatalog: Record<string, CatalogItem>
@@ -612,7 +615,7 @@ export default function PortalView({
     setNodeType('Person');
   };
 
-  const handleAddMaterialSubmit = (e: React.FormEvent) => {
+  const handleAddMaterialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!matName || !activeSubNode || !activeManager) return;
 
@@ -640,6 +643,17 @@ export default function PortalView({
       model,
     ].filter(Boolean).join(' ');
 
+    let imageUrl: string | undefined;
+    if (matImageFile) {
+      try {
+        imageUrl = await uploadAssetImage(matImageFile);
+      } catch (err) {
+        console.error('Failed to upload asset image:', err);
+        triggerToast(t('upload_failed') || 'Upload failed');
+        return;
+      }
+    }
+
     const newMaterial: Material = {
       id: `mat-${Date.now()}`,
       name: materialName,
@@ -655,6 +669,7 @@ export default function PortalView({
       purchaseDate: matDate || undefined,
       cost: Number(matCost) || 0,
       notes: matNotes.trim() || undefined,
+      imageUrl,
       assignedNodeId: activeSubNode.id
     };
 
@@ -723,6 +738,7 @@ export default function PortalView({
     setMatSerial('');
     setMatCost('');
     setMatNotes('');
+    setMatImageFile(null);
     setMatDate('');
     setMatStatus('Active');
     setMatCondition('Bon');
@@ -762,11 +778,23 @@ export default function PortalView({
     setPuceContract('TC');
   };
 
-  const handleEditMaterialSave = (e: React.FormEvent) => {
+  const handleEditMaterialSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMaterial) return;
-    onUpdateMaterial(editingMaterial.id, editingMaterial);
+    let updatedMaterial = editingMaterial;
+    if (editingMaterialImageFile) {
+      try {
+        const imageUrl = await uploadAssetImage(editingMaterialImageFile);
+        updatedMaterial = { ...editingMaterial, imageUrl };
+      } catch (err) {
+        console.error('Failed to upload asset image:', err);
+        triggerToast(t('upload_failed') || 'Upload failed');
+        return;
+      }
+    }
+    onUpdateMaterial(updatedMaterial.id, updatedMaterial);
     triggerToast(`${t('asset_updated_successfully')}`);
+    setEditingMaterialImageFile(null);
     setEditingMaterial(null);
   };
 
@@ -1305,6 +1333,7 @@ export default function PortalView({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setEditingMaterialImageFile(null);
                                 setEditingMaterial({ ...material });
                               }}
                               className="p-1.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-[#D2D2D7] rounded-lg transition-all cursor-pointer"
@@ -1816,6 +1845,27 @@ export default function PortalView({
                     </div>
 
                     <div>
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Asset Photo</label>
+                      <label className="flex items-center gap-3 px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 rounded-lg cursor-pointer hover:bg-white transition-all">
+                        <span className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                          <ImageIcon className="w-4 h-4 text-[#FF1E1E]" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-xs font-bold text-slate-700 truncate">
+                            {matImageFile ? matImageFile.name : 'Upload asset image'}
+                          </span>
+                          <span className="block text-[10px] text-slate-400">PNG, JPG, WEBP</span>
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => setMatImageFile(e.target.files?.[0] || null)}
+                        />
+                      </label>
+                    </div>
+
+                    <div>
                       <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">{t('device_integration_remarks')}</label>
                       <textarea rows={2} placeholder={t('device_integration_remarks_placeholder')}
   className="w-full text-xs px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-lg focus:outline-none text-slate-700"
@@ -2046,6 +2096,34 @@ export default function PortalView({
                   </div>
 
                   <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Asset Photo</label>
+                    {editingMaterial.imageUrl && !editingMaterialImageFile && (
+                      <img
+                        src={editingMaterial.imageUrl}
+                        alt={editingMaterial.name}
+                        className="mb-2 w-full h-32 object-cover rounded-xl border border-slate-200 bg-slate-50"
+                      />
+                    )}
+                    <label className="flex items-center gap-3 px-3 py-2 bg-slate-50 border border-[#D2D2D7]/60 rounded-lg cursor-pointer hover:bg-white transition-all">
+                      <span className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                        <ImageIcon className="w-4 h-4 text-indigo-500" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-bold text-slate-700 truncate">
+                          {editingMaterialImageFile ? editingMaterialImageFile.name : editingMaterial.imageUrl ? 'Replace asset image' : 'Upload asset image'}
+                        </span>
+                        <span className="block text-[10px] text-slate-400">PNG, JPG, WEBP</span>
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => setEditingMaterialImageFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                  </div>
+
+                  <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">
                       {t('configuration_specs')} <span className="text-[#FF1E1E]">(→ {t('decharge')})</span>
                     </label>
@@ -2218,6 +2296,23 @@ export default function PortalView({
                   >
                     <X className="w-4 h-4" />
                   </button>
+                </div>
+
+                <div className="px-6 pt-5 pb-4 border-b border-slate-100">
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                    {timelineMaterial.imageUrl ? (
+                      <img
+                        src={timelineMaterial.imageUrl}
+                        alt={timelineMaterial.name}
+                        className="h-48 w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-32 flex flex-col items-center justify-center text-slate-400">
+                        <ImageIcon className="w-8 h-8" />
+                        <span className="mt-2 text-[10px] font-black uppercase tracking-widest">No asset photo</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="px-6 py-4 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">

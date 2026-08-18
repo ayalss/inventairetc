@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Material } from '../types';
-import { Printer, Download, Tag, Grid, Loader2, FileText } from 'lucide-react';
+import { Printer, Download, Tag, Grid, Loader2, FileText, Image as ImageIcon } from 'lucide-react';
 // Local fallback encrypt function to avoid missing module import.
 // Encodes codification to a URL-safe base64 string.
 const encryptCodification = (value: string) => {
@@ -148,6 +148,21 @@ export default function MaterialQrCard({ material, onClose }: MaterialQrCardProp
           >
             <Grid className="w-4 h-4 rotate-45" />
           </button>
+        )}
+      </div>
+
+      <div className="mb-5 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+        {material.imageUrl ? (
+          <img
+            src={material.imageUrl}
+            alt={material.name}
+            className="h-44 w-full object-cover"
+          />
+        ) : (
+          <div className="h-32 w-full flex flex-col items-center justify-center text-slate-400">
+            <ImageIcon className="w-8 h-8" />
+            <span className="mt-2 text-[10px] font-bold uppercase tracking-wider">No asset photo</span>
+          </div>
         )}
       </div>
 

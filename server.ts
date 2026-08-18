@@ -368,6 +368,7 @@ async function checkAndInitializeDatabase() {
         purchase_date    VARCHAR(50),
         cost             DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
         notes            TEXT,
+        image_url        TEXT,
         condition        VARCHAR(20)    NOT NULL DEFAULT 'Bon',
         assigned_node_id VARCHAR(50)    REFERENCES sub_nodes(id) ON DELETE CASCADE
       );
@@ -419,6 +420,7 @@ async function checkAndInitializeDatabase() {
 
     // ── Migrations ──
     await client.query(`ALTER TABLE materials   ADD COLUMN IF NOT EXISTS condition  VARCHAR(20)  NOT NULL DEFAULT 'Bon';`);
+    await client.query(`ALTER TABLE materials   ADD COLUMN IF NOT EXISTS image_url  TEXT;`);
     await client.query(`ALTER TABLE users        ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN      NOT NULL DEFAULT FALSE;`);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_material_history_material_id_created_at
@@ -516,6 +518,20 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 app.use('/uploads', express.static(uploadsDir));
+
+app.post('/api/uploads/asset-image', upload.single('file'), (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: 'No image file uploaded.' });
+  if (!file.mimetype.startsWith('image/')) {
+    return res.status(400).json({ error: 'Uploaded file must be an image.' });
+  }
+  res.json({
+    url: `/uploads/${file.filename}`,
+    name: file.originalname,
+    type: file.mimetype,
+    uploadedAt: new Date().toISOString()
+  });
+});
 
 // ==========================================
 // API ENDPOINTS
@@ -1077,6 +1093,7 @@ app.get('/api/materials', async (req, res) => {
                material_num     AS "materialNum",
                serial_number    AS "serialNumber",
                purchase_date    AS "purchaseDate",
+               image_url        AS "imageUrl",
                assigned_node_id AS "assignedNodeId"
         FROM materials ORDER BY name ASC
       `);
@@ -1093,7 +1110,7 @@ app.post('/api/materials', async (req, res) => {
   const {
     id, name, type, company, deptNum, officeNum, materialNum,
     codification, status, serialNumber, purchaseDate, cost, notes,
-    condition, assignedNodeId
+    imageUrl, condition, assignedNodeId
   } = req.body;
 
   if (!id || !name || !type || !company || !codification || !status) {
@@ -1120,16 +1137,17 @@ app.post('/api/materials', async (req, res) => {
       const { rows } = await pool.query(
         `INSERT INTO materials (
            id, name, type, company, dept_num, office_num, material_num,
-           codification, status, serial_number, purchase_date, cost, notes, condition, assigned_node_id
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+           codification, status, serial_number, purchase_date, cost, notes, image_url, condition, assigned_node_id
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
          ON CONFLICT (id) DO UPDATE SET
            name=$2, type=$3, company=$4, dept_num=$5, office_num=$6, material_num=$7,
            codification=$8, status=$9, serial_number=$10, purchase_date=$11,
-           cost=$12, notes=$13, condition=$14, assigned_node_id=$15
+           cost=$12, notes=$13, image_url=$14, condition=$15, assigned_node_id=$16
          RETURNING
            id, name, type, company, status, codification, cost, notes, condition,
            dept_num AS "deptNum", office_num AS "officeNum", material_num AS "materialNum",
            serial_number AS "serialNumber", purchase_date AS "purchaseDate",
+           image_url AS "imageUrl",
            assigned_node_id AS "assignedNodeId"`,
         [
           id, name, type, company,
@@ -1141,6 +1159,7 @@ app.post('/api/materials', async (req, res) => {
           purchaseDate || null,
           parseFloat(cost) || 0,
           notes        || null,
+          imageUrl     || null,
           condition    || 'Bon',
           assignedNodeId || null
         ]
@@ -1171,6 +1190,7 @@ app.post('/api/materials', async (req, res) => {
       const payload = {
         id, name, type, company, deptNum, officeNum, materialNum,
         codification, status, serialNumber, purchaseDate, cost, notes,
+        imageUrl,
         condition: condition || 'Bon', assignedNodeId
       };
       if (idx > -1) memoryStore.materials[idx] = payload;

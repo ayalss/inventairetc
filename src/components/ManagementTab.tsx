@@ -6,8 +6,9 @@ import {
   Plus, FolderPlus, UserPlus, Layers, Laptop, Check, AlertCircle, Trash2, 
   Edit, Printer, X, FileText, Search, User, Briefcase, Network, Coins, 
   Users, Cpu, Truck, LayoutList, ClipboardCheck, CreditCard, ChevronDown,
-  Square, CheckSquare, AlertTriangle, Paperclip, FileUp, Eye, Download, Smartphone
+  Square, CheckSquare, AlertTriangle, Paperclip, FileUp, Eye, Download, Smartphone, Image as ImageIcon
 } from 'lucide-react';
+import { uploadAssetImage } from '../utils/uploadAssetImage';
 
 // ─── Catalog Selector types ──────────────────────────────────────────────────
 interface CatalogBrand {
@@ -225,6 +226,7 @@ export default function ManagementTab({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inlineFileInputRef = useRef<HTMLInputElement>(null);
   const userEditedNotesRef = useRef(false);
+  const [editingItemImageFile, setEditingItemImageFile] = useState<File | null>(null);
   
 
   // Décharge multi-select
@@ -275,6 +277,7 @@ export default function ManagementTab({
   const [matDate,      setMatDate]      = useState('');
   const [matNodeId,    setMatNodeId]    = useState(subNodes[0]?.id || '');
   const [matNotes,     setMatNotes]     = useState('');
+  const [matImageFile, setMatImageFile] = useState<File | null>(null);
 
   // ─── Dynamic Catalog Picker states ─────────────────────────────────────────
   // ✅ FIX: initialize from DEFAULT_CATALOG, then load from API
@@ -442,7 +445,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNodeName(''); setNodeRole(''); setNodeCin('');
   };
 
-  const handleMaterialSubmit = (e: React.FormEvent) => {
+  const handleMaterialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!matName) return;
     const activeNodeId = matNodeId || subNodes[0]?.id;
@@ -456,6 +459,17 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const { materialNum, codification } = generateMaterialCodification(
       associatedManager.company, resolvedDeptNum, targetNode.officeNum, matType, materials
     );
+    let imageUrl: string | undefined;
+    if (matImageFile) {
+      try {
+        imageUrl = await uploadAssetImage(matImageFile);
+      } catch (err) {
+        console.error('Failed to upload asset image:', err);
+        triggerSuccess(t('upload_failed') || 'Upload failed');
+        return;
+      }
+    }
+
     const newMaterial: Material = {
       id: `mat-${Date.now()}`, name: matName, type: matType,
       company: associatedManager.company, deptNum: resolvedDeptNum,
@@ -463,7 +477,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       condition: matCondition,
       serialNumber: matSerial.trim() || `SN-PENDING-${Math.floor(1000 + Math.random() * 9000)}`,
       purchaseDate: matDate ? matDate : undefined, cost: Number(matCost) || 0,
-      notes: matNotes.trim() || undefined, assignedNodeId: activeNodeId
+      notes: matNotes.trim() || undefined, imageUrl, assignedNodeId: activeNodeId
     };
 
     // ✅ FIX: save new brand/model to catalog via API
@@ -527,7 +541,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onAddMaterial(newMaterial);
     triggerSuccess(`Asset cataloged — QR ID: ${codification}`);
     
-    setMatName(''); setMatSerial(''); setMatCost(''); setMatNotes(''); setMatDate('');
+    setMatName(''); setMatSerial(''); setMatCost(''); setMatNotes(''); setMatDate(''); setMatImageFile(null);
     setMatCondition('Bon');
     setMatNodeId(subNodes[0]?.id || '');
     setSelectedCatalogType('');
@@ -562,7 +576,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPuceNodeId('');
   };
 
-  const handleEditSave = (e: React.FormEvent) => {
+  const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
     const { type, id, data } = editingItem;
@@ -571,6 +585,15 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (type === 'subnode')  { onUpdateSubNode(id, data);   triggerSuccess(`Desk "${data.name}" updated`); }
     if (type === 'puce')     { onUpdatePuce(id, data);      triggerSuccess(`Puce "${data.phoneNumber}" updated`); }
     if (type === 'material') {
+      if (editingItemImageFile) {
+        try {
+          data.imageUrl = await uploadAssetImage(editingItemImageFile);
+        } catch (err) {
+          console.error('Failed to upload asset image:', err);
+          triggerSuccess(t('upload_failed') || 'Upload failed');
+          return;
+        }
+      }
       const targetNode = subNodes.find(n => n.id === data.assignedNodeId);
       if (targetNode) {
         const mgr = managers.find(m => m.id === targetNode.managerId);
@@ -584,6 +607,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       onUpdateMaterial(id, data);
       triggerSuccess(`Asset "${data.name}" updated`);
     }
+    setEditingItemImageFile(null);
     setEditingItem(null);
   };
 
@@ -923,6 +947,26 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Acquisition Date (Optional)</label>
                     <input type="date" className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#FF1E1E] text-[#1D1D1F]"
                       value={matDate} onChange={(e) => setMatDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1.5">Asset Photo</label>
+                    <label className="flex items-center gap-3 px-3.5 py-2.5 bg-slate-50 border border-[#D2D2D7]/60 rounded-xl cursor-pointer hover:bg-white transition-all">
+                      <span className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                        <ImageIcon className="w-4 h-4 text-[#FF1E1E]" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-bold text-slate-700 truncate">
+                          {matImageFile ? matImageFile.name : 'Upload asset image'}
+                        </span>
+                        <span className="block text-[10px] text-slate-400">PNG, JPG, WEBP</span>
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => setMatImageFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
                   </div>
                   <div>
                     <textarea rows={3} placeholder="e.g. Processeur: AMD RYZEN 7 8845HS @5.1GHz&#10;RAM: 16Gb DDR5&#10;GPU: ...&#10;Stockage: 1Tb SSD"
@@ -1280,7 +1324,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button onClick={() => setEditingItem({ type: 'material', id: m.id, data: { ...m } })}
+                      <button onClick={() => { setEditingItemImageFile(null); setEditingItem({ type: 'material', id: m.id, data: { ...m } }); }}
                         className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer">
                         <Edit className="w-3.5 h-3.5" />
                       </button>
@@ -1331,7 +1375,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
                       <span className="text-[10px] text-[#86868B] block truncate">S/N : {p.serialNumber} — PUK : {p.pukCode}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button onClick={() => setEditingItem({ type: 'puce', id: p.id, data: { ...p } })}
+                      <button onClick={() => { setEditingItemImageFile(null); setEditingItem({ type: 'puce', id: p.id, data: { ...p } }); }}
                         className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${isVierge ? 'bg-amber-50 text-amber-600 hover:bg-amber-100 border-amber-200' : 'bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 border-slate-200'}`}>
                         <Edit className="w-3.5 h-3.5" />
                       </button>
@@ -1386,7 +1430,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
                         <Paperclip className="w-3.5 h-3.5" />
                         {docCount > 0 && <span>{docCount}</span>}
                       </button>
-                      <button onClick={() => setEditingItem({ type: 'subnode', id: s.id, data: { ...s } })}
+                      <button onClick={() => { setEditingItemImageFile(null); setEditingItem({ type: 'subnode', id: s.id, data: { ...s } }); }}
                         className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { if (confirm(`Delete desk node? (${count} assets and ${puceCount} puces affected)`)) { onDeleteSubNode(s.id); triggerSuccess('Deleted desk node'); } }}
                         className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -1417,7 +1461,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
                       <span className="text-[9.5px] text-indigo-600 font-bold block mt-1">Directly managing {nodeCount} desks/cells</span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => setEditingItem({ type: 'manager', id: m.id, data: { ...m } })}
+                      <button onClick={() => { setEditingItemImageFile(null); setEditingItem({ type: 'manager', id: m.id, data: { ...m } }); }}
                         className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { if (confirm(`Delete Manager "${m.name}"?`)) { onDeleteManager(m.id); triggerSuccess('Decommissioned manager profile'); } }}
                         className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -1445,7 +1489,7 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
                         className="p-1.5 bg-white text-slate-755 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-bold">
                         <Printer className="w-3.5 h-3.5" /><span>Report</span>
                       </button>
-                      <button onClick={() => setEditingItem({ type: 'dept', id: d.id, data: { ...d } })}
+                      <button onClick={() => { setEditingItemImageFile(null); setEditingItem({ type: 'dept', id: d.id, data: { ...d } }); }}
                         className="p-1.5 bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { if (confirm(`Delete Department "${d.name}"?`)) { onDeleteDepartment(d.id); triggerSuccess('Purged Department registry'); } }}
                         className="p-1.5 bg-white text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -1723,6 +1767,35 @@ const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
                         </button>
                       ))}
                     </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">
+                      Asset Photo
+                    </label>
+                    {editingItem.data.imageUrl && !editingItemImageFile && (
+                      <img
+                        src={editingItem.data.imageUrl}
+                        alt={editingItem.data.name}
+                        className="mb-2 w-full h-32 object-cover rounded-xl border border-slate-200 bg-slate-50"
+                      />
+                    )}
+                    <label className="flex items-center gap-3 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-white transition-all">
+                      <span className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                        <ImageIcon className="w-4 h-4 text-[#FF1E1E]" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-bold text-slate-700 truncate">
+                          {editingItemImageFile ? editingItemImageFile.name : editingItem.data.imageUrl ? 'Replace asset image' : 'Upload asset image'}
+                        </span>
+                        <span className="block text-[10px] text-slate-400">PNG, JPG, WEBP</span>
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => setEditingItemImageFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-1">
